@@ -21,7 +21,7 @@ export const HabitsScreen: React.FC = () => {
   // Unified reactive context for student profile, points, leaderboard, and habits
   const {
     studentProfile,
-    classLeaderboard,
+    classHabitsLeaderboard,
     habitsByDate,
     toggleHabit: contextToggleHabit,
     isDateSubmitted,
@@ -646,38 +646,41 @@ export const HabitsScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* Class Ranking List matching Screenshot 1 */}
+              {/* Class Ranking List matching Screenshot 3 */}
               <View style={styles.rankList}>
-                {classLeaderboard.slice(0, 8).map((student) => (
-                  <View
-                    key={student.name}
-                    style={[styles.rankRow, student.isCurrent && styles.rankRowCurrentUser]}
-                  >
-                    <Text
-                      style={[
-                        styles.rankNumberText,
-                        student.isCurrent && styles.rankNumberTextCurrentUser,
-                      ]}
+                {classHabitsLeaderboard.slice(0, 8).map((student) => {
+                  const hPoints = student.isCurrent ? studentProfile.habitsPts : (student.habitsPts ?? student.points ?? 0);
+                  return (
+                    <View
+                      key={student.name}
+                      style={[styles.rankRow, student.isCurrent && styles.rankRowCurrentUser]}
                     >
-                      {student.rank}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.studentNameText,
-                        student.isCurrent && styles.studentNameTextCurrentUser,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {student.name}
-                    </Text>
-                    <Text style={styles.pointsTextWrap}>
-                      <Text style={styles.pointsLetterH}>H </Text>
-                      <Text style={styles.pointsNumberConsolas}>
-                        {student.isCurrent ? studentProfile.habitsPts : student.points}
+                      <Text
+                        style={[
+                          styles.rankNumberText,
+                          student.isCurrent && styles.rankNumberTextCurrentUser,
+                        ]}
+                      >
+                        {student.rank}
                       </Text>
-                    </Text>
-                  </View>
-                ))}
+                      <Text
+                        style={[
+                          styles.studentNameText,
+                          student.isCurrent && styles.studentNameTextCurrentUser,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {student.name}
+                      </Text>
+                      <Text style={styles.pointsTextWrap}>
+                        <Text style={styles.pointsLetterH}>H </Text>
+                        <Text style={styles.pointsNumberConsolas}>
+                          {hPoints}
+                        </Text>
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             </View>
           </View>

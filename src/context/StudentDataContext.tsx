@@ -128,6 +128,7 @@ interface StudentDataContextType {
   revokeHabitPoints: (dateKey: string) => void;
 
   // Leaderboard
+  classHabitsLeaderboard: LeaderboardStudent[];
   classLeaderboard: LeaderboardStudent[];
   houseLeaderboard: LeaderboardHouse[];
   jenjangLeaderboard: LeaderboardStudent[];
@@ -212,35 +213,43 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // Dynamic points history list (starts with static historical logs from Oct 13, 14, 15)
   const [pointsHistory, setPointsHistory] = useState<PointHistoryItem[]>(INITIAL_POINTS_HISTORY);
 
-  // Student Profile State (starts with previous points: habitsPts = 2 from Oct 14)
-  const [studentProfile, setStudentProfile] = useState<StudentProfile>(() => ({
-    ...STUDENT_PROFILE,
-    habitsPts: INITIAL_HABIT_PTS,
-    points: STUDENT_PROFILE.points + INITIAL_HABIT_PTS,
-  }));
+  // Student Profile State (starts with D 0, L 6, H 8 -> 14 pts)
+  const [studentProfile, setStudentProfile] = useState<StudentProfile>(STUDENT_PROFILE);
 
-  // Class Leaderboard State (Fatih starts with previous points and placed at Rank 1)
-  const [classLeaderboard, setClassLeaderboard] = useState<LeaderboardStudent[]>(() => {
-    const updated = LEADERBOARD_CLASS.map((student) => {
+  // House Leaderboard State (7 houses, dynamic points and breakdown)
+  const [houseLeaderboard, setHouseLeaderboard] = useState<LeaderboardHouse[]>([...LEADERBOARD_HOUSES]);
+
+  // Class Habits Leaderboard (Ranked SOLELY by habitsPts for Habits screen tab 3)
+  const [classHabitsLeaderboard, setClassHabitsLeaderboard] = useState<LeaderboardStudent[]>(() => {
+    const list = LEADERBOARD_CLASS.map((student) => {
       if (student.isCurrent) {
-        return { ...student, points: INITIAL_HABIT_PTS };
+        return {
+          ...student,
+          habitsPts: STUDENT_PROFILE.habitsPts,
+          points: STUDENT_PROFILE.habitsPts,
+        };
       }
-      return student;
+      return {
+        ...student,
+        habitsPts: student.habitsPts || 0,
+        points: student.habitsPts || 0,
+      };
     });
-    return [...updated]
+    return [...list]
+      .sort((a, b) => (b.habitsPts || 0) - (a.habitsPts || 0))
+      .map((s, idx) => ({ ...s, rank: idx + 1 }));
+  });
+
+  // Class Full Leaderboard (Ranked by TOTAL points D+L+H for Leaderboard screen tab 3)
+  const [classLeaderboard, setClassLeaderboard] = useState<LeaderboardStudent[]>(() => {
+    return [...LEADERBOARD_CLASS]
       .sort((a, b) => b.points - a.points)
       .map((s, idx) => ({ ...s, rank: idx + 1 }));
   });
 
-  // Jenjang Leaderboard State (Fatih starts with previous points and placed at Rank 1)
+  // Jenjang Full Leaderboard (Ranked by TOTAL points D+L+H for Leaderboard screen tab 2)
   const [jenjangLeaderboard, setJenjangLeaderboard] = useState<LeaderboardStudent[]>(() => {
-    const updated = LEADERBOARD_JENJANG.map((student) => {
-      if (student.isCurrent) {
-        return { ...student, points: INITIAL_HABIT_PTS };
-      }
-      return student;
-    });
-    return [...updated]
+    return [...LEADERBOARD_JENJANG]
       .sort((a, b) => b.points - a.points)
       .map((s, idx) => ({ ...s, rank: idx + 1 }));
   });
@@ -305,11 +314,27 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       };
     });
 
-    // 3. Update Class Leaderboard (Fatih (you) points & re-sort)
+    // 3. Update Class Habits Leaderboard (re-sort by habitsPts only)
+    setClassHabitsLeaderboard((prev) => {
+      const updated = prev.map((student) => {
+        if (student.isCurrent) {
+          const newH = (student.habitsPts || 0) + 2;
+          return { ...student, habitsPts: newH, points: newH };
+        }
+        return student;
+      });
+      return [...updated]
+        .sort((a, b) => (b.habitsPts || 0) - (a.habitsPts || 0))
+        .map((s, idx) => ({ ...s, rank: idx + 1 }));
+    });
+
+    // 4. Update Class Full Leaderboard (Fatih (you) total points + 2 & habitsPts + 2 & re-sort)
     setClassLeaderboard((prev) => {
       const updated = prev.map((student) => {
         if (student.isCurrent) {
-          return { ...student, points: student.points + 2 };
+          const newH = (student.habitsPts || 0) + 2;
+          const newTotal = student.points + 2;
+          return { ...student, habitsPts: newH, points: newTotal };
         }
         return student;
       });
@@ -318,11 +343,13 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         .map((s, idx) => ({ ...s, rank: idx + 1 }));
     });
 
-    // 4. Update Jenjang Leaderboard (Fatih (you) points & re-sort)
+    // 5. Update Jenjang Full Leaderboard (Fatih (you) total points + 2 & habitsPts + 2 & re-sort)
     setJenjangLeaderboard((prev) => {
       const updated = prev.map((student) => {
         if (student.isCurrent) {
-          return { ...student, points: student.points + 2 };
+          const newH = (student.habitsPts || 0) + 2;
+          const newTotal = student.points + 2;
+          return { ...student, habitsPts: newH, points: newTotal };
         }
         return student;
       });
@@ -331,7 +358,7 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         .map((s, idx) => ({ ...s, rank: idx + 1 }));
     });
 
-    // 5. Trigger Toast Notification (concise 1-2 words)
+    // 6. Trigger Toast Notification (concise 1-2 words)
     showToast('+2 pts · Full day', 2);
   };
 
@@ -350,10 +377,27 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       points: Math.max(0, prev.points - 2),
     }));
 
+    // Update Class Habits Leaderboard
+    setClassHabitsLeaderboard((prev) => {
+      const updated = prev.map((student) => {
+        if (student.isCurrent) {
+          const newH = Math.max(0, (student.habitsPts || 0) - 2);
+          return { ...student, habitsPts: newH, points: newH };
+        }
+        return student;
+      });
+      return [...updated]
+        .sort((a, b) => (b.habitsPts || 0) - (a.habitsPts || 0))
+        .map((s, idx) => ({ ...s, rank: idx + 1 }));
+    });
+
+    // Update Class Full Leaderboard
     setClassLeaderboard((prev) => {
       const updated = prev.map((student) => {
         if (student.isCurrent) {
-          return { ...student, points: Math.max(0, student.points - 2) };
+          const newH = Math.max(0, (student.habitsPts || 0) - 2);
+          const newTotal = Math.max(0, student.points - 2);
+          return { ...student, habitsPts: newH, points: newTotal };
         }
         return student;
       });
@@ -362,10 +406,13 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         .map((s, idx) => ({ ...s, rank: idx + 1 }));
     });
 
+    // Update Jenjang Full Leaderboard
     setJenjangLeaderboard((prev) => {
       const updated = prev.map((student) => {
         if (student.isCurrent) {
-          return { ...student, points: Math.max(0, student.points - 2) };
+          const newH = Math.max(0, (student.habitsPts || 0) - 2);
+          const newTotal = Math.max(0, student.points - 2);
+          return { ...student, habitsPts: newH, points: newTotal };
         }
         return student;
       });
@@ -434,6 +481,37 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       literacyPts: prev.literacyPts + 3,
       points: prev.points + 3,
     }));
+
+    // Reactively update Class Full Leaderboard (literacyPts + 3, total points + 3, re-sort)
+    setClassLeaderboard((prev) => {
+      const updated = prev.map((student) => {
+        if (student.isCurrent) {
+          const newL = (student.literacyPts || 0) + 3;
+          const newTotal = student.points + 3;
+          return { ...student, literacyPts: newL, points: newTotal };
+        }
+        return student;
+      });
+      return [...updated]
+        .sort((a, b) => b.points - a.points)
+        .map((s, idx) => ({ ...s, rank: idx + 1 }));
+    });
+
+    // Reactively update Jenjang Full Leaderboard (literacyPts + 3, total points + 3, re-sort)
+    setJenjangLeaderboard((prev) => {
+      const updated = prev.map((student) => {
+        if (student.isCurrent) {
+          const newL = (student.literacyPts || 0) + 3;
+          const newTotal = student.points + 3;
+          return { ...student, literacyPts: newL, points: newTotal };
+        }
+        return student;
+      });
+      return [...updated]
+        .sort((a, b) => b.points - a.points)
+        .map((s, idx) => ({ ...s, rank: idx + 1 }));
+    });
+
     setPointsHistory((prev) => [
       {
         id: `lit_${entry.id}_${Date.now()}`,
@@ -467,6 +545,36 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       literacyPts: Math.max(0, prev.literacyPts - 3),
       points: Math.max(0, prev.points - 3),
     }));
+
+    // Update Class Full Leaderboard
+    setClassLeaderboard((prev) => {
+      const updated = prev.map((student) => {
+        if (student.isCurrent) {
+          const newL = Math.max(0, (student.literacyPts || 0) - 3);
+          const newTotal = Math.max(0, student.points - 3);
+          return { ...student, literacyPts: newL, points: newTotal };
+        }
+        return student;
+      });
+      return [...updated]
+        .sort((a, b) => b.points - a.points)
+        .map((s, idx) => ({ ...s, rank: idx + 1 }));
+    });
+
+    // Update Jenjang Full Leaderboard
+    setJenjangLeaderboard((prev) => {
+      const updated = prev.map((student) => {
+        if (student.isCurrent) {
+          const newL = Math.max(0, (student.literacyPts || 0) - 3);
+          const newTotal = Math.max(0, student.points - 3);
+          return { ...student, literacyPts: newL, points: newTotal };
+        }
+        return student;
+      });
+      return [...updated]
+        .sort((a, b) => b.points - a.points)
+        .map((s, idx) => ({ ...s, rank: idx + 1 }));
+    });
   };
 
   const loadSampleLiteracyEntry = () => {
@@ -488,8 +596,9 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         pointsHistory,
         addHabitPoints,
         revokeHabitPoints,
+        classHabitsLeaderboard,
         classLeaderboard,
-        houseLeaderboard: LEADERBOARD_HOUSES,
+        houseLeaderboard,
         jenjangLeaderboard,
         habitsByDate,
         toggleHabit,

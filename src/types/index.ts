@@ -155,6 +155,9 @@ export interface LeaderboardHouse {
   color: string;
   points: number;
   members: number;
+  disciplinePts?: number;
+  literacyPts?: number;
+  habitsPts?: number;
 }
 
 export interface LeaderboardStudent {
@@ -163,6 +166,9 @@ export interface LeaderboardStudent {
   class?: string;
   house: string;
   points: number;
+  disciplinePts?: number;
+  literacyPts?: number;
+  habitsPts?: number;
   isCurrent?: boolean;
 }
 

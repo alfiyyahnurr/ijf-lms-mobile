@@ -19,10 +19,10 @@ import {
 
 export const STUDENT_PROFILE: StudentProfile = {
   userId: 2602,
-  studentId: 5243234,
+  studentId: 2602,
   schoolId: 6,
   fullName: "Fatih",
-  email: "fatih@sch.id",
+  email: "fatih@learn.kreativaglobal.sch.id",
   role: "student",
   schoolName: "Kreativa Global High School",
   schoolLevel: "high_school_igcse",
@@ -30,10 +30,10 @@ export const STUDENT_PROFILE: StudentProfile = {
   className: "S4 Oxford",
   academicYearName: "Academic Year 7",
   house: "Unassigned",
-  points: 9,
+  points: 14,
   disciplinePts: 0,
-  literacyPts: 9,
-  habitsPts: 0,
+  literacyPts: 6,
+  habitsPts: 8,
 };
 
 export const COURSES_DATA: Course[] = [
@@ -174,29 +174,29 @@ export const LEADERBOARD_HOUSES: LeaderboardHouse[] = [
 ];
 
 export const LEADERBOARD_JENJANG: LeaderboardStudent[] = [
-  { rank: 1, name: "Afkar Aldrich Prasetio", class: "S4 Harvard", house: "—", points: 0 },
-  { rank: 2, name: "Anindya Adzka Anandira", class: "S4 Oxford", house: "Alexandria", points: 0 },
-  { rank: 3, name: "Azizi Maarif Wibowo", class: "S4 Oxford", house: "—", points: 0 },
-  { rank: 4, name: "Azri Gaizan Fadhirrahman Ariyana", class: "S4 Oxford", house: "—", points: 0 },
-  { rank: 5, name: "Elora Heilma Ramadhani", class: "S4 Oxford", house: "—", points: 0 },
-  { rank: 6, name: "Fatih (you)", class: "S4 Oxford", house: "—", points: 0, isCurrent: true },
-  { rank: 7, name: "Belva Audra Brahmono", class: "S4 Harvard", house: "—", points: 0 },
-  { rank: 8, name: "Dhira Rahayu Mecca Sileuw", class: "S4 Harvard", house: "—", points: 0 },
+  { rank: 1, name: "Fatih (you)", class: "S4 Oxford", house: "—", points: 14, disciplinePts: 0, literacyPts: 6, habitsPts: 8, isCurrent: true },
+  { rank: 2, name: "Afkar Aldrich Prasetio", class: "S4 Harvard", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 3, name: "Anindya Adzka Anandira", class: "S4 Oxford", house: "Alexandria", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 4, name: "Azizi Maarif Wibowo", class: "S4 Oxford", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 5, name: "Azri Gaizan Fadhirrahman Ariyana", class: "S4 Oxford", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 6, name: "Elora Heilma Ramadhani", class: "S4 Oxford", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 7, name: "Belva Audra Brahmono", class: "S4 Harvard", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 8, name: "Dhira Rahayu Mecca Sileuw", class: "S4 Harvard", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
 ];
 
 export const LEADERBOARD_CLASS: LeaderboardStudent[] = [
-  { rank: 1, name: "Anindya Adzka Anandira", house: "Alexandria", points: 0 },
-  { rank: 2, name: "Azizi Maarif Wibowo", house: "—", points: 0 },
-  { rank: 3, name: "Azri Gaizan Fadhirrahman Ariyana", house: "—", points: 0 },
-  { rank: 4, name: "Elora Heilma Ramadhani", house: "—", points: 0 },
-  { rank: 5, name: "Fathir Ahmad Madani", house: "—", points: 0 },
-  { rank: 6, name: "Fatih (you)", house: "—", points: 0, isCurrent: true },
-  { rank: 7, name: "Humaira Rizka Kamila", house: "—", points: 0 },
-  { rank: 8, name: "Jasmine Keynesia Putri Setyawan", house: "—", points: 0 },
-  { rank: 9, name: "Keiran Nararya Fajar", house: "—", points: 0 },
-  { rank: 10, name: "Khafidz Riffat Setiadi", house: "—", points: 0 },
-  { rank: 11, name: "Muhammad Fatih Fawwaz", house: "—", points: 0 },
-  { rank: 12, name: "Nabil Satria Pambudi", house: "—", points: 0 }
+  { rank: 1, name: "Fatih (you)", house: "—", points: 14, disciplinePts: 0, literacyPts: 6, habitsPts: 8, isCurrent: true },
+  { rank: 2, name: "Anindya Adzka Anandira", house: "Alexandria", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 3, name: "Azizi Maarif Wibowo", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 4, name: "Azri Gaizan Fadhirrahman Ariyana", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 5, name: "Elora Heilma Ramadhani", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 6, name: "Fathir Ahmad Madani", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 7, name: "Humaira Rizka Kamila", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 8, name: "Jasmine Keynesia Putri Setyawan", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 9, name: "Keiran Nararya Fajar", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 10, name: "Khafidz Riffat Setiadi", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 11, name: "Muhammad Fatih Fawwaz", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 },
+  { rank: 12, name: "Nabil Satria Pambudi", house: "—", points: 0, disciplinePts: 0, literacyPts: 0, habitsPts: 0 }
 ];
 
 export const POSTMAN_MOCK_STUDENT_CONTEXT = {

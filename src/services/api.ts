@@ -129,16 +129,18 @@ export const api = {
   },
 
   leaderboard: {
-    getClass: async (classId: number = 99): Promise<LeaderboardStudent[]> => {
-      // GET {{baseUrl}}/api/leaderboard/class?classId=99
-      return [...LEADERBOARD_CLASS];
-    },
-    getHouses: async (): Promise<LeaderboardHouse[]> => {
-      // GET {{baseUrl}}/api/leaderboard/house
+    // GET {{baseUrl}}/api/leaderboard/houses?academicYearId={{academicYearId}}&termId={{termId}}&houseId=
+    getHouses: async (academicYearId: number = 7, termId: number = 1): Promise<LeaderboardHouse[]> => {
       return [...LEADERBOARD_HOUSES];
     },
-    getJenjang: async (): Promise<LeaderboardStudent[]> => {
-      // GET {{baseUrl}}/api/leaderboard/level
+
+    // GET {{baseUrl}}/api/leaderboard/class?classId={{classId}}&academicYearId={{academicYearId}}&termId={{termId}}
+    getClass: async (classId: number = 99, academicYearId: number = 7, termId: number = 1): Promise<LeaderboardStudent[]> => {
+      return [...LEADERBOARD_CLASS];
+    },
+
+    // GET {{baseUrl}}/api/leaderboard/jenjang?schoolLevel=high_school_igcse&academicYearId={{academicYearId}}&termId={{termId}}
+    getJenjang: async (schoolLevel: string = 'high_school_igcse', academicYearId: number = 7, termId: number = 1): Promise<LeaderboardStudent[]> => {
       return [...LEADERBOARD_JENJANG];
     },
   },
@@ -301,6 +303,38 @@ export const api = {
     list: async (): Promise<Announcement[]> => {
       // GET {{baseUrl}}/api/announcements
       return [...ANNOUNCEMENTS_DATA];
+    },
+  },
+
+  points: {
+    // GET {{baseUrl}}/api/student/points/summary?academicYearId={{academicYearId}}&termId={{termId}}
+    getSummary: async (academicYearId: number = 7, termId: number = 1) => {
+      return {
+        total: STUDENT_PROFILE.points,
+        discipline: STUDENT_PROFILE.disciplinePts,
+        literacy: STUDENT_PROFILE.literacyPts,
+        habits: STUDENT_PROFILE.habitsPts,
+      };
+    },
+
+    // GET {{baseUrl}}/api/student/points/history
+    getHistory: async () => {
+      return [
+        {
+          id: 'pt_hist_1',
+          title: 'To Kill a Mockingbird',
+          date: 'October 22, 2026',
+          points: 3,
+          category: 'literacy',
+        },
+        {
+          id: 'pt_hist_2',
+          title: 'Habit full day (≥5 categories checked)',
+          date: 'October 14, 2026',
+          points: 2,
+          category: 'habits',
+        },
+      ];
     },
   },
 };

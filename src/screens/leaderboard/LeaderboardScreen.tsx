@@ -84,39 +84,56 @@ export const LeaderboardScreen: React.FC = () => {
         {activeTab === 'house' && (
           <View style={styles.tabContentContainer}>
             <View style={styles.houseList}>
-              {houseLeaderboard.map((house) => (
-                <View key={house.name} style={styles.houseCard}>
-                  {/* Top Line */}
-                  <View style={styles.houseHeaderRow}>
-                    <View style={styles.houseLeftGroup}>
-                      <Text style={styles.houseRank}>#{house.rank}</Text>
-                      <View style={[styles.houseDot, { backgroundColor: house.color }]} />
-                      <Text style={styles.houseName}>{house.name}</Text>
+              {houseLeaderboard.map((house) => {
+                const maxHousePoints = Math.max(...houseLeaderboard.map((h) => h.points), 10);
+                const hasPoints = house.points > 0;
+                const fillWidth = hasPoints
+                  ? `${Math.min(100, Math.max(6, (house.points / maxHousePoints) * 100))}%`
+                  : '0%';
+
+                return (
+                  <View key={house.name} style={styles.houseCard}>
+                    {/* Top Line */}
+                    <View style={styles.houseHeaderRow}>
+                      <View style={styles.houseLeftGroup}>
+                        <Text style={styles.houseRank}>#{house.rank}</Text>
+                        <View style={[styles.houseDot, { backgroundColor: house.color }]} />
+                        <Text style={styles.houseName}>{house.name}</Text>
+                      </View>
+                      <Text style={styles.housePoints}>
+                        <Text style={styles.pointsConsolasNumber}>{house.points}</Text> pts
+                      </Text>
                     </View>
-                    <Text style={styles.housePoints}>
-                      <Text style={styles.pointsConsolasNumber}>{house.points}</Text> pts
+
+                    {/* Progress Track matching screenshot: circular dot indicator at start position for 0 pts, or dynamic fill if > 0 */}
+                    <View style={styles.progressTrack}>
+                      {hasPoints ? (
+                        <View
+                          style={[
+                            styles.progressFill,
+                            {
+                              backgroundColor: house.color,
+                              width: `${Math.min(100, Math.max(10, (house.points / maxHousePoints) * 100))}%`,
+                            },
+                          ]}
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.progressDotZero,
+                            { backgroundColor: house.color },
+                          ]}
+                        />
+                      )}
+                    </View>
+
+                    {/* Bottom Stats matching Screenshot: 0 members  ·  D 0  L 0  H 0 */}
+                    <Text style={styles.houseMembersText}>
+                      {house.members} members  ·  D <Text style={styles.pointsConsolasNumber}>{house.disciplinePts ?? 0}</Text>  L <Text style={styles.pointsConsolasNumber}>{house.literacyPts ?? 0}</Text>  H <Text style={styles.pointsConsolasNumber}>{house.habitsPts ?? 0}</Text>
                     </Text>
                   </View>
-
-                  {/* Progress Track */}
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        {
-                          backgroundColor: house.color,
-                          width: `${Math.max(house.points * 5, 8)}%`,
-                        },
-                      ]}
-                    />
-                  </View>
-
-                  {/* Bottom Stats */}
-                  <Text style={styles.houseMembersText}>
-                    {house.members} members  ·  D <Text style={styles.pointsConsolasNumber}>0</Text>  ·  L <Text style={styles.pointsConsolasNumber}>0</Text>  ·  H <Text style={styles.pointsConsolasNumber}>{house.name === studentProfile.house ? studentProfile.habitsPts : 0}</Text>
-                  </Text>
-                </View>
-              ))}
+                );
+              })}
             </View>
 
             {/* My points history Card matching Screenshot */}
@@ -165,6 +182,10 @@ export const LeaderboardScreen: React.FC = () => {
               {jenjangLeaderboard.map((item) => {
                 const isYou = item.isCurrent || item.name.includes('(you)');
                 const displayName = isYou ? item.name.replace(' (you)', '') : item.name;
+                const literacyVal = isYou ? studentProfile.literacyPts : (item.literacyPts ?? 0);
+                const habitsVal = isYou ? studentProfile.habitsPts : (item.habitsPts ?? 0);
+                const totalPointsVal = isYou ? studentProfile.points : item.points;
+
                 return (
                   <View
                     key={item.name}
@@ -174,15 +195,31 @@ export const LeaderboardScreen: React.FC = () => {
                       #{item.rank}
                     </Text>
                     <View style={[styles.colJenjangName, styles.nameCellWrapper]}>
-                      <Text
-                        style={[styles.tdNameText, isYou && styles.textHighlight]}
-                        numberOfLines={1}
-                      >
-                        {displayName}
-                      </Text>
-                      {isYou && (
-                        <View style={styles.youBadgeMini}>
-                          <Text style={styles.youBadgeText}>you</Text>
+                      <View style={styles.nameRowInline}>
+                        <Text
+                          style={[styles.tdNameText, isYou && styles.textHighlight]}
+                          numberOfLines={1}
+                        >
+                          {displayName}
+                        </Text>
+                        {isYou && (
+                          <Text style={styles.youInlineText}>(you)</Text>
+                        )}
+                      </View>
+
+                      {/* Dynamic L and H breakdown badges matching Screenshot 1 */}
+                      {(literacyVal > 0 || habitsVal > 0) && (
+                        <View style={styles.categoryPillsRow}>
+                          {literacyVal > 0 && (
+                            <View style={styles.categoryPillGreen}>
+                              <Text style={styles.categoryPillGreenText}>L {literacyVal}</Text>
+                            </View>
+                          )}
+                          {habitsVal > 0 && (
+                            <View style={styles.categoryPillGreen}>
+                              <Text style={styles.categoryPillGreenText}>H {habitsVal}</Text>
+                            </View>
+                          )}
                         </View>
                       )}
                     </View>
@@ -197,7 +234,7 @@ export const LeaderboardScreen: React.FC = () => {
                       {item.house}
                     </Text>
                     <Text style={[styles.tdPoints, styles.colJenjangPoints, isYou && styles.textHighlight, { fontFamily: FONTS.consolas }]}>
-                      {isYou ? studentProfile.points : item.points}
+                      {totalPointsVal}
                     </Text>
                   </View>
                 );
@@ -211,10 +248,10 @@ export const LeaderboardScreen: React.FC = () => {
           <View style={styles.tabContentContainer}>
             <Text style={styles.classHeaderTitle}>Class S4 Oxford</Text>
             <Text style={styles.classHeaderSub}>
-              Alexandria leads in this class with 0 pts from 1 members
+              Unassigned leads in this class with {studentProfile.points} pts from 15 members
             </Text>
 
-            {/* Dynamic Podium Graphics matching Screenshot 105948 */}
+            {/* Dynamic Podium Graphics matching Screenshot 2 */}
             <View style={styles.podiumContainer}>
               {/* 2nd Place (Left) */}
               <View style={styles.podiumCol}>
@@ -224,7 +261,9 @@ export const LeaderboardScreen: React.FC = () => {
                 <Text style={styles.podiumStudentName} numberOfLines={1}>
                   {secondPlace ? secondPlace.name.replace(' (you)', '') : '—'}
                 </Text>
-                <Text style={styles.podiumPts}>{secondPlace ? (secondPlace.isCurrent ? studentProfile.habitsPts : secondPlace.points) : 0}</Text>
+                <Text style={styles.podiumPts}>
+                  {secondPlace ? (secondPlace.isCurrent ? studentProfile.points : secondPlace.points) : 0}
+                </Text>
                 <View style={[styles.podiumPedestal, { height: 95 }]} />
               </View>
 
@@ -236,7 +275,9 @@ export const LeaderboardScreen: React.FC = () => {
                 <Text style={styles.podiumStudentName} numberOfLines={1}>
                   {firstPlace ? firstPlace.name.replace(' (you)', '') : '—'}
                 </Text>
-                <Text style={styles.podiumPts}>{firstPlace ? (firstPlace.isCurrent ? studentProfile.habitsPts : firstPlace.points) : 0}</Text>
+                <Text style={styles.podiumPts}>
+                  {firstPlace ? (firstPlace.isCurrent ? studentProfile.points : firstPlace.points) : 0}
+                </Text>
                 <View style={[styles.podiumPedestal, { height: 125 }]} />
               </View>
 
@@ -248,12 +289,14 @@ export const LeaderboardScreen: React.FC = () => {
                 <Text style={styles.podiumStudentName} numberOfLines={1}>
                   {thirdPlace ? thirdPlace.name.replace(' (you)', '') : '—'}
                 </Text>
-                <Text style={styles.podiumPts}>{thirdPlace ? (thirdPlace.isCurrent ? studentProfile.habitsPts : thirdPlace.points) : 0}</Text>
+                <Text style={styles.podiumPts}>
+                  {thirdPlace ? (thirdPlace.isCurrent ? studentProfile.points : thirdPlace.points) : 0}
+                </Text>
                 <View style={[styles.podiumPedestal, { height: 75 }]} />
               </View>
             </View>
 
-            {/* Table below podium matching Screenshot 105948 */}
+            {/* Table below podium matching Screenshot 2 */}
             <View style={styles.tableCard}>
               {/* Table Header */}
               <View style={styles.tableHeaderRow}>
@@ -267,6 +310,10 @@ export const LeaderboardScreen: React.FC = () => {
               {classLeaderboard.map((item) => {
                 const isYou = item.isCurrent || item.name.includes('(you)');
                 const displayName = isYou ? item.name.replace(' (you)', '') : item.name;
+                const literacyVal = isYou ? studentProfile.literacyPts : (item.literacyPts ?? 0);
+                const habitsVal = isYou ? studentProfile.habitsPts : (item.habitsPts ?? 0);
+                const totalPointsVal = isYou ? studentProfile.points : item.points;
+
                 return (
                   <View
                     key={item.name}
@@ -276,15 +323,31 @@ export const LeaderboardScreen: React.FC = () => {
                       #{item.rank}
                     </Text>
                     <View style={[styles.colClassName, styles.nameCellWrapper]}>
-                      <Text
-                        style={[styles.tdNameText, isYou && styles.textHighlight]}
-                        numberOfLines={1}
-                      >
-                        {displayName}
-                      </Text>
-                      {isYou && (
-                        <View style={styles.youBadgeMini}>
-                          <Text style={styles.youBadgeText}>you</Text>
+                      <View style={styles.nameRowInline}>
+                        <Text
+                          style={[styles.tdNameText, isYou && styles.textHighlight]}
+                          numberOfLines={1}
+                        >
+                          {displayName}
+                        </Text>
+                        {isYou && (
+                          <Text style={styles.youInlineText}>(you)</Text>
+                        )}
+                      </View>
+
+                      {/* Dynamic L and H breakdown badges matching Screenshot 2 */}
+                      {(literacyVal > 0 || habitsVal > 0) && (
+                        <View style={styles.categoryPillsRow}>
+                          {literacyVal > 0 && (
+                            <View style={styles.categoryPillGreen}>
+                              <Text style={styles.categoryPillGreenText}>L {literacyVal}</Text>
+                            </View>
+                          )}
+                          {habitsVal > 0 && (
+                            <View style={styles.categoryPillGreen}>
+                              <Text style={styles.categoryPillGreenText}>H {habitsVal}</Text>
+                            </View>
+                          )}
                         </View>
                       )}
                     </View>
@@ -298,7 +361,7 @@ export const LeaderboardScreen: React.FC = () => {
                       {item.house}
                     </Text>
                     <Text style={[styles.tdPoints, styles.colClassPoints, isYou && styles.textHighlight, { fontFamily: FONTS.consolas }]}>
-                      {isYou ? studentProfile.habitsPts : item.points}
+                      {totalPointsVal}
                     </Text>
                   </View>
                 );
@@ -459,12 +522,18 @@ const styles = StyleSheet.create({
   progressTrack: {
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#F5F2EB',
+    backgroundColor: '#F5EFE6',
     overflow: 'hidden',
     marginBottom: 8,
+    justifyContent: 'center',
   },
   progressFill: {
     height: '100%',
+    borderRadius: 5,
+  },
+  progressDotZero: {
+    width: 10,
+    height: 10,
     borderRadius: 5,
   },
   houseMembersText: {
@@ -616,6 +685,11 @@ const styles = StyleSheet.create({
     borderLeftColor: '#2563EB',
   },
   nameCellWrapper: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  nameRowInline: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -626,6 +700,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0F172A',
     flexShrink: 1,
+  },
+  youInlineText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  categoryPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 3,
+  },
+  categoryPillGreen: {
+    backgroundColor: '#DCFCE7',
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryPillGreenText: {
+    fontFamily: FONTS.bold,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803D',
   },
   youBadgeMini: {
     backgroundColor: '#BFDBFE',
