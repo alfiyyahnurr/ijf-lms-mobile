@@ -1,0 +1,781 @@
+import {
+  StudentProfile,
+  Course,
+  Assignment,
+  Quiz,
+  Announcement,
+  HabitGroup,
+  LeaderboardHouse,
+  LeaderboardStudent,
+  LiteracyEntry,
+  ScheduleItem,
+  ExamItem,
+  SubjectGrade,
+  CourseSession,
+  CourseSessionDetail,
+  WeeklyPlanSession,
+  ClassHabitRankItem,
+} from '../types';
+
+export const STUDENT_PROFILE: StudentProfile = {
+  userId: 2602,
+  studentId: 5243234,
+  schoolId: 6,
+  fullName: "Fatih",
+  email: "fatih@sch.id",
+  role: "student",
+  schoolName: "Kreativa Global High School",
+  schoolLevel: "high_school_igcse",
+  classId: 99,
+  className: "S4 Oxford",
+  academicYearName: "Academic Year 7",
+  house: "Unassigned",
+  points: 9,
+  disciplinePts: 0,
+  literacyPts: 9,
+  habitsPts: 0,
+};
+
+export const COURSES_DATA: Course[] = [
+  { id: 1, code: "ART_IG", name: "Art IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 10, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 2, code: "BI_IG", name: "Bahasa Indonesia IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 30, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 3, code: "BIO_IG", name: "Biology IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 70, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 4, code: "CHEM_IG", name: "Chemistry IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 70, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 5, code: "CEHIS_IG", name: "Civic Education/History IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 20, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 6, code: "EL_IG", name: "English Language IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 70, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 7, code: "GP_IG", name: "Global Perspective IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 10, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 8, code: "ICT_IG", name: "ICT / Computer Science IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 10, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 9, code: "ISL_IG", name: "Islamic Studies IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 20, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 10, code: "MATH_IG", name: "Mathematics IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 70, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 11, code: "PE_IG", name: "Physical Education IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 20, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 12, code: "PHY_IG", name: "Physics IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 70, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 13, code: "SOC_IG", name: "Sociology IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 20, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" },
+  { id: 14, code: "BUS_IG", name: "Business Studies IGCSE — S4 A 2026/2027", teacher: "No teacher assigned", sessions: 20, status: "active", class: "S4 Oxford", description: "No course description yet.", curriculum: "Kurikulum Merdeka" }
+];
+
+export const ASSIGNMENTS_DATA: Assignment[] = [
+  { id: 1, title: "Civic Education/History IGCSE — Application Project (Week 8)", course: "Civic Education/History IGCSE — S4 A 2026/2027", dueDate: "Sep 11, 2026", score: "—", status: "pending" },
+  { id: 2, title: "ICT / Computer Science IGCSE — Application Project (Week 8)", course: "ICT / Computer Science IGCSE — S4 A 2026/2027", dueDate: "Sep 11, 2026", score: "—", status: "pending" },
+  { id: 3, title: "Art IGCSE — Application Project (Week 8)", course: "Art IGCSE — S4 A 2026/2027", dueDate: "Sep 11, 2026", score: "—", status: "pending" },
+  { id: 31, title: "Art IGCSE — Practice Task (Week 4)", course: "Art IGCSE — S4 A 2026/2027", dueDate: "Aug 14, 2026", score: "—", status: "pending" },
+  { id: 4, title: "Islamic Studies IGCSE — Application Project (Week 8)", course: "Islamic Studies IGCSE — S4 A 2026/2027", dueDate: "Sep 11, 2026", score: "—", status: "pending" },
+  { id: 5, title: "Chemistry IGCSE — Application Project (Week 8)", course: "Chemistry IGCSE — S4 A 2026/2027", dueDate: "Sep 11, 2026", score: "—", status: "pending" },
+  { id: 6, title: "Mathematics IGCSE — Application Project (Week 8)", course: "Mathematics IGCSE — S4 A 2026/2027", dueDate: "Nov 12, 2026", score: "—", status: "pending" },
+  { id: 7, title: "Bahasa Indonesia IGCSE — Application Project (Week 8)", course: "Bahasa Indonesia IGCSE — S4 A 2026/2027", dueDate: "Nov 14, 2026", score: "—", status: "pending" },
+  { id: 8, title: "Physical Education IGCSE — Application Project (Week 8)", course: "Physical Education IGCSE — S4 A 2026/2027", dueDate: "Sep 11, 2026", score: "—", status: "pending" },
+  { id: 9, title: "English Language IGCSE — Application Project (Week 8)", course: "English Language IGCSE — S4 A 2026/2027", dueDate: "Nov 18, 2026", score: "—", status: "pending" },
+  { id: 10, title: "Physics IGCSE — Application Project (Week 8)", course: "Physics IGCSE — S4 A 2026/2027", dueDate: "Nov 20, 2026", score: "—", status: "pending" }
+];
+
+export const QUIZZES_DATA: Quiz[] = [
+  { id: 1, title: "Art IGCSE — Term 1 Checkpoint Quiz (S4 A)", course: "Art IGCSE — S4 A 2026/2027", duration: "? min", questions: 5, score: "—", status: "not started" },
+  { id: 2, title: "Biology IGCSE — Term 1 Checkpoint Quiz (S4 A)", course: "Biology IGCSE — S4 A 2026/2027", duration: "? min", questions: 5, score: "—", status: "not started" },
+  { id: 3, title: "Bahasa Indonesia IGCSE — Term 1 Checkpoint Quiz (S4 A)", course: "Bahasa Indonesia IGCSE — S4 A 2026/2027", duration: "? min", questions: 5, score: "—", status: "not started" },
+  { id: 4, title: "Civic Education/History IGCSE — Term 1 Checkpoint Quiz (S4 A)", course: "Civic Education/History IGCSE — S4 A 2026/2027", duration: "? min", questions: 5, score: "—", status: "not started" },
+  { id: 5, title: "Chemistry IGCSE — Term 1 Checkpoint Quiz (S4 A)", course: "Chemistry IGCSE — S4 A 2026/2027", duration: "? min", questions: 5, score: "—", status: "not started" },
+  { id: 6, title: "English Language IGCSE — Term 1 Checkpoint Quiz (S4 A)", course: "English Language IGCSE — S4 A 2026/2027", duration: "? min", questions: 5, score: "—", status: "not started" },
+  { id: 7, title: "Global Perspective IGCSE — Term 1 Checkpoint Quiz (S4 A)", course: "Global Perspective IGCSE — S4 A 2026/2027", duration: "? min", questions: 5, score: "—", status: "not started" },
+  { id: 8, title: "ICT / Computer Science IGCSE — Term 1 Checkpoint Quiz (S4 A)", course: "ICT / Computer Science IGCSE — S4 A 2026/2027", duration: "? min", questions: 5, score: "—", status: "not started" }
+];
+
+export const ANNOUNCEMENTS_DATA: Announcement[] = [
+  {
+    id: 1,
+    title: "Library Extended Hours",
+    content: "The library will have extended hours (until 5 PM) during July and August to support your studies. Take advantage of this for group study and research projects.",
+    author: "Mr. Daniel Hartono",
+    date: "Jul 18, 2026",
+    isNew: true,
+    read: false,
+  },
+  {
+    id: 2,
+    title: "Welcome to Academic Year 2026/2027",
+    content: "Dear students of Kreativa Global High School, Welcome to the new academic year! We are excited to have you back. Please check your course schedules and make sure all textbooks are ready by the first day of class.\n\nBest regards,\nSchool Administration",
+    author: "Mr. Daniel Hartono",
+    date: "Jul 14, 2026",
+    isNew: true,
+    read: false,
+  }
+];
+
+export const HABIT_GROUPS_INITIAL: HabitGroup[] = [
+  {
+    id: "rise-early",
+    title: "Rise Early",
+    items: [
+      { id: "h1", text: "Woke up at 4:30 AM", checked: false },
+      { id: "h2", text: "Planned today before 6:00 AM", checked: false }
+    ]
+  },
+  {
+    id: "worship",
+    title: "Worship",
+    items: [
+      { id: "h3", text: "Fajr (congregation)", checked: false },
+      { id: "h4", text: "Dhuha", checked: false },
+      { id: "h5", text: "Dhuhr", checked: false },
+      { id: "h6", text: "Asr", checked: false },
+      { id: "h7", text: "Maghrib", checked: false },
+      { id: "h8", text: "Isha", checked: false },
+      { id: "h9", text: "Morning & evening dhikr", checked: false },
+      { id: "h10", text: "Read & reflected on Qur'an", checked: false }
+    ]
+  },
+  {
+    id: "exercise",
+    title: "Exercise",
+    items: [
+      { id: "h11", text: "30 minutes of physical activity / sports", checked: false }
+    ]
+  },
+  {
+    id: "eat-well",
+    title: "Eat Well",
+    items: [
+      { id: "h12", text: "3 balanced meals", checked: false },
+      { id: "h13", text: "Avoided sugary snacks/drinks", checked: false }
+    ]
+  },
+  {
+    id: "love-learning",
+    title: "Love Learning",
+    items: [
+      { id: "h14", text: "Read enrichment material (30+ min)", checked: false },
+      { id: "h15", text: "Completed pre-reading for tomorrow's lesson", checked: false }
+    ]
+  },
+  {
+    id: "community",
+    title: "Community",
+    items: [
+      { id: "h16", text: "Greeted teachers and staff", checked: false },
+      { id: "h17", text: "Helped a classmate or junior student", checked: false }
+    ]
+  },
+  {
+    id: "sleep-early",
+    title: "Sleep Early",
+    items: [
+      { id: "h18", text: "In bed by 10:00 PM", checked: false },
+      { id: "h19", text: "No screens 30 min before bed", checked: false }
+    ]
+  }
+];
+
+export const LEADERBOARD_HOUSES: LeaderboardHouse[] = [
+  { rank: 1, name: "Alexandria", color: "#1E3A8A", points: 0, members: 0 },
+  { rank: 2, name: "Cordova", color: "#CA8A04", points: 0, members: 0 },
+  { rank: 3, name: "Damascus", color: "#BE123C", points: 0, members: 0 },
+  { rank: 4, name: "Granada", color: "#7E22CE", points: 0, members: 0 },
+  { rank: 5, name: "Istanbul", color: "#1E40AF", points: 0, members: 0 },
+  { rank: 6, name: "Medina", color: "#0F766E", points: 0, members: 0 },
+  { rank: 7, name: "Seville", color: "#15803D", points: 0, members: 0 },
+];
+
+export const LEADERBOARD_JENJANG: LeaderboardStudent[] = [
+  { rank: 1, name: "Afkar Aldrich Prasetio", class: "S4 Harvard", house: "—", points: 0 },
+  { rank: 2, name: "Anindya Adzka Anandira", class: "S4 Oxford", house: "Alexandria", points: 0 },
+  { rank: 3, name: "Azizi Maarif Wibowo", class: "S4 Oxford", house: "—", points: 0 },
+  { rank: 4, name: "Azri Gaizan Fadhirrahman Ariyana", class: "S4 Oxford", house: "—", points: 0 },
+  { rank: 5, name: "Elora Heilma Ramadhani", class: "S4 Oxford", house: "—", points: 0 },
+  { rank: 6, name: "Fatih (you)", class: "S4 Oxford", house: "—", points: 0, isCurrent: true },
+  { rank: 7, name: "Belva Audra Brahmono", class: "S4 Harvard", house: "—", points: 0 },
+  { rank: 8, name: "Dhira Rahayu Mecca Sileuw", class: "S4 Harvard", house: "—", points: 0 },
+];
+
+export const LEADERBOARD_CLASS: LeaderboardStudent[] = [
+  { rank: 1, name: "Anindya Adzka Anandira", house: "Alexandria", points: 0 },
+  { rank: 2, name: "Azizi Maarif Wibowo", house: "—", points: 0 },
+  { rank: 3, name: "Azri Gaizan Fadhirrahman Ariyana", house: "—", points: 0 },
+  { rank: 4, name: "Elora Heilma Ramadhani", house: "—", points: 0 },
+  { rank: 5, name: "Fathir Ahmad Madani", house: "—", points: 0 },
+  { rank: 6, name: "Fatih (you)", house: "—", points: 0, isCurrent: true },
+  { rank: 7, name: "Humaira Rizka Kamila", house: "—", points: 0 },
+  { rank: 8, name: "Jasmine Keynesia Putri Setyawan", house: "—", points: 0 },
+  { rank: 9, name: "Keiran Nararya Fajar", house: "—", points: 0 },
+  { rank: 10, name: "Khafidz Riffat Setiadi", house: "—", points: 0 },
+  { rank: 11, name: "Muhammad Fatih Fawwaz", house: "—", points: 0 },
+  { rank: 12, name: "Nabil Satria Pambudi", house: "—", points: 0 }
+];
+
+export const POSTMAN_MOCK_STUDENT_CONTEXT = {
+  studentId: 2602,
+  userId: 2602,
+  schoolId: 6,
+  academicYearId: 7,
+  termId: 1,
+  classId: 99,
+  schoolLevel: 'SMA',
+  fullName: 'Ahmad Naufal',
+  email: 'ahmad.naufal@learn.kreativaglobal.sch.id',
+  role: 'student',
+};
+
+export const DUMMY_LITERACY_ENTRIES: LiteracyEntry[] = [
+  {
+    id: "lit-001",
+    title: "To Kill a Mockingbird",
+    author: "Harper Lee",
+    readingType: "Novel / Fiction",
+    type: "Novel / Fiction",
+    genre: "Historical Fiction",
+    language: "English",
+    pagesOrLength: "281 pages",
+    finishedDate: "2026-10-22",
+    dateFinished: "22/10/2026",
+    rating: "Outstanding ★★★★★",
+    claimPrompt: "What argument or central claim does the author make?",
+    claim: "Empathy is essential to understanding human behavior before making judgments.",
+    reflectionClaim: "What argument or central claim does the author make?",
+    reflectionText: "Empathy is essential to understanding human behavior before making judgments.",
+    evidencePrompt: "Which specific passage, data, or example best supports your claim?",
+    evidence: "Empathy is essential to understanding human behavior before making judgments.",
+    sowhatPrompt: "What are the broader implications of the author's argument?",
+    sowhat: "Cultivating empathy builds fairness, equity, and compassion in society.",
+    connection: "This relates directly to anti-bullying campaigns and restorative justice in schools.",
+    vocab: ["empathy", "resilience", "dialectical"],
+    vocabulary: "empathy, resilience, dialectical",
+    createdAt: "2026-10-22T08:30:00.000Z",
+  },
+  {
+    id: "lit-002",
+    title: "Filosofi Teras",
+    author: "Henry Manampiring",
+    readingType: "Non-Fiction / Academic",
+    type: "Non-Fiction / Academic",
+    genre: "Philosophy",
+    language: "Bahasa Indonesia",
+    pagesOrLength: "320 pages",
+    finishedDate: "2026-10-18",
+    dateFinished: "18/10/2026",
+    rating: "Very good ★★★★",
+    claimPrompt: "What perspective or worldview does this text represent?",
+    claim: "Stoicism provides practical mental self-control by differentiating what is within our control versus what is outside.",
+    reflectionClaim: "What perspective or worldview does this text represent?",
+    reflectionText: "Stoicism provides practical mental self-control by differentiating what is within our control versus what is outside.",
+    evidencePrompt: "Which specific passage, data, or example best supports your claim?",
+    evidence: "Dikotomi kendali: kita tidak bisa mengontrol tindakan orang lain, tetapi kita selalu bisa mengontrol respon internal kita.",
+    sowhatPrompt: "How does this connect to other texts, ideas, or global issues?",
+    sowhat: "Membantu pelajar menjaga kesehatan mental di era arus informasi digital yang rentan menimbulkan kecemasan.",
+    connection: "Relevan dengan manajemen stres murid saat menghadapi pekan ujian dan tugas sekolah.",
+    vocab: ["dikotomi kendali", "amor fati", "premeditatio malorum"],
+    vocabulary: "dikotomi kendali, amor fati, premeditatio malorum",
+    createdAt: "2026-10-18T14:15:00.000Z",
+  },
+  {
+    id: "lit-003",
+    title: "1984",
+    author: "George Orwell",
+    readingType: "Novel / Fiction",
+    type: "Novel / Fiction",
+    genre: "Dystopia",
+    language: "English",
+    pagesOrLength: "328 pages",
+    finishedDate: "2026-10-05",
+    dateFinished: "05/10/2026",
+    rating: "Outstanding ★★★★★",
+    claimPrompt: "What assumption underlies this text's main idea?",
+    claim: "Totalitarian regimes maintain absolute dominance through manipulation of language and systematic erasure of truth.",
+    reflectionClaim: "What assumption underlies this text's main idea?",
+    reflectionText: "Totalitarian regimes maintain absolute dominance through manipulation of language and systematic erasure of truth.",
+    evidencePrompt: "How does the author use language or structure to support this?",
+    evidence: "The concept of Newspeak and doublethink directly eliminates the vocabulary necessary for rebellious thought.",
+    sowhatPrompt: "What are the broader implications of the author's argument?",
+    sowhat: "Protecting freedom of expression and independent truth is vital for preserving democratic societies.",
+    connection: "Parallels modern algorithmic censorship, digital privacy debates, and disinformation.",
+    vocab: ["doublethink", "newspeak", "panopticon"],
+    vocabulary: "doublethink, newspeak, panopticon",
+    createdAt: "2026-10-05T09:20:00.000Z",
+  }
+];
+
+// Initial literacy entries: populated with the 3 realistic mock entries by default
+export const INITIAL_LITERACY_ENTRIES: LiteracyEntry[] = [...DUMMY_LITERACY_ENTRIES];
+
+export const LITERACY_TYPES = [
+  'Novel / Fiction',
+  'Non-Fiction / Academic',
+  'Scientific Article',
+  'News / Journalism',
+  'Other',
+];
+
+export const LITERACY_LANGUAGES = [
+  'English',
+  'Bahasa Indonesia',
+  'Arabic',
+  'Other',
+];
+
+export const LITERACY_GENRES = [
+  'Historical Fiction',
+  'Science Fiction',
+  'Fantasy',
+  'Dystopia',
+  'Mystery / Thriller',
+  'Romance',
+  'Adventure',
+  'Biography',
+  'Science / Nature',
+  'Philosophy',
+  'Politics / Society',
+  'Religion / Spirituality',
+  'Self-development',
+  'Arts & Culture',
+  'Technology',
+  'Health & Medicine',
+  'Economics',
+  'Other',
+];
+
+export const LITERACY_RATINGS = [
+  'Outstanding ★★★★★',
+  'Very good ★★★★',
+  'Good ★★★',
+  'Fair ★★',
+  'Weak ★',
+];
+
+export const LITERACY_CLAIM_PROMPTS = [
+  'What argument or central claim does the author make?',
+  'What perspective or worldview does this text represent?',
+  'What assumption underlies this text\'s main idea?',
+];
+
+export const LITERACY_EVIDENCE_PROMPTS = [
+  'Which specific passage, data, or example best supports your claim?',
+  'What textual evidence challenges or complicates your claim?',
+  'How does the author use language or structure to support this?',
+];
+
+export const LITERACY_SO_WHAT_PROMPTS = [
+  'What are the broader implications of the author\'s argument?',
+  'How does this connect to other texts, ideas, or global issues?',
+  'What question does this text leave unanswered — and why does that matter?',
+];
+
+export const INITIAL_LITERACY_PROGRESS = {
+  textsRead: 0,
+  textsTarget: 18,
+  genreVariety: 0,
+  genreTarget: 5,
+  avgRating: '—',
+  englishPercentage: 0,
+  englishTargetPercentage: 30,
+  level: 'SMA',
+  schoolLevel: 'SMA',
+};
+
+export const WEEKLY_SCHEDULE: Record<string, ScheduleItem[]> = {
+  Mon: [
+    { id: '1', time: '07:30 - 08:50', subject: 'Mathematics IGCSE', room: 'Room 201', teacher: 'Mr. Arif', type: 'Core' },
+    { id: '2', time: '09:10 - 10:30', subject: 'Biology IGCSE', room: 'Lab Bio', teacher: 'Ms. Sarah', type: 'Science' },
+    { id: '3', time: '11:00 - 12:20', subject: 'English Language IGCSE', room: 'Room 105', teacher: 'Mr. David', type: 'Core' },
+    { id: '4', time: '13:00 - 14:20', subject: 'Islamic Studies IGCSE', room: 'Musalla', teacher: 'Ust. Rahman', type: 'Religious' },
+  ],
+  Tue: [
+    { id: '5', time: '07:30 - 08:50', subject: 'Chemistry IGCSE', room: 'Lab Chem', teacher: 'Dr. Hendra', type: 'Science' },
+    { id: '6', time: '09:10 - 10:30', subject: 'Physics IGCSE', room: 'Lab Physics', teacher: 'Mr. Budi', type: 'Science' },
+    { id: '7', time: '11:00 - 12:20', subject: 'Bahasa Indonesia IGCSE', room: 'Room 204', teacher: 'Ibu Ratna', type: 'Core' },
+  ],
+  Wed: [
+    { id: '8', time: '07:30 - 08:50', subject: 'ICT / Computer Science', room: 'Computer Lab 1', teacher: 'Mr. Ryan', type: 'Tech' },
+    { id: '9', time: '09:10 - 10:30', subject: 'Global Perspective', room: 'Room 302', teacher: 'Ms. Maya', type: 'Social' },
+    { id: '10', time: '11:00 - 12:20', subject: 'Civic Education/History', room: 'Room 102', teacher: 'Mr. Anton', type: 'Social' },
+  ],
+  Thu: [
+    { id: '11', time: '07:30 - 08:50', subject: 'Physical Education', room: 'Sports Field', teacher: 'Coach Dimas', type: 'Activity' },
+    { id: '12', time: '09:10 - 10:30', subject: 'Art IGCSE', room: 'Art Studio', teacher: 'Ms. Clara', type: 'Creative' },
+    { id: '13', time: '11:00 - 12:20', subject: 'Business Studies', room: 'Room 205', teacher: 'Mr. Farhan', type: 'Elective' },
+  ],
+  Fri: [
+    { id: '14', time: '07:30 - 08:50', subject: 'Mathematics IGCSE', room: 'Room 201', teacher: 'Mr. Arif', type: 'Core' },
+    { id: '15', time: '09:00 - 10:20', subject: 'Character & Literacy Session', room: 'Main Hall', teacher: 'All Mentors', type: 'Development' },
+  ],
+};
+
+export const EXAMS_DATA: ExamItem[] = [
+  {
+    id: 'e1',
+    course: 'Mathematics IGCSE (Paper 2 & 4)',
+    code: 'MATH_IG',
+    type: 'Mid-Term Exam',
+    date: 'Nov 02, 2026',
+    time: '08:00 - 10:00 (120 mins)',
+    room: 'Hall B (Main Exam Center)',
+    seatNumber: 'B-14',
+    status: 'upcoming',
+  },
+  {
+    id: 'e2',
+    course: 'Biology IGCSE (Theory)',
+    code: 'BIO_IG',
+    type: 'Mid-Term Exam',
+    date: 'Nov 04, 2026',
+    time: '08:00 - 09:15 (75 mins)',
+    room: 'Hall B (Main Exam Center)',
+    seatNumber: 'B-14',
+    status: 'upcoming',
+  },
+  {
+    id: 'e3',
+    course: 'English Language IGCSE',
+    code: 'EL_IG',
+    type: 'Mid-Term Exam',
+    date: 'Nov 06, 2026',
+    time: '08:00 - 10:00 (120 mins)',
+    room: 'Hall B (Main Exam Center)',
+    seatNumber: 'B-14',
+    status: 'upcoming',
+  },
+  {
+    id: 'e4',
+    course: 'Physics IGCSE (Theory & Alternative to Practical)',
+    code: 'PHY_IG',
+    type: 'Mid-Term Exam',
+    date: 'Nov 09, 2026',
+    time: '08:00 - 09:30 (90 mins)',
+    room: 'Hall B (Main Exam Center)',
+    seatNumber: 'B-14',
+    status: 'upcoming',
+  },
+];
+
+export const GRADES_DATA: SubjectGrade[] = [
+  {
+    id: 'g1',
+    subject: 'Mathematics IGCSE',
+    code: 'MATH_IG',
+    score: 92,
+    grade: 'A*',
+    attendance: '98%',
+    comment: 'Exceptional problem-solving abilities and thorough mastery of algebraic topics.',
+  },
+  {
+    id: 'g2',
+    subject: 'Biology IGCSE',
+    code: 'BIO_IG',
+    score: 88,
+    grade: 'A',
+    attendance: '96%',
+    comment: 'Strong grasp of genetics and ecology concepts; great participation in practical labs.',
+  },
+  {
+    id: 'g3',
+    subject: 'English Language IGCSE',
+    code: 'EL_IG',
+    score: 85,
+    grade: 'A',
+    attendance: '100%',
+    comment: 'Demonstrates expressive analytical writing and mature reading comprehension.',
+  },
+  {
+    id: 'g4',
+    subject: 'Physics IGCSE',
+    code: 'PHY_IG',
+    score: 89,
+    grade: 'A',
+    attendance: '95%',
+    comment: 'Consistent performance in kinematics and electrical theory modules.',
+  },
+  {
+    id: 'g5',
+    subject: 'Chemistry IGCSE',
+    code: 'CHEM_IG',
+    score: 84,
+    grade: 'A',
+    attendance: '94%',
+    comment: 'Good understanding of stoichiometry and periodic table trends.',
+  },
+  {
+    id: 'g6',
+    subject: 'Islamic Studies IGCSE',
+    code: 'ISL_IG',
+    score: 95,
+    grade: 'A*',
+    attendance: '100%',
+    comment: 'Exemplary character, memorization discipline, and moral reflection.',
+  },
+];
+
+export const ART_IG_SESSIONS: CourseSession[] = [
+  { id: 'art-10', courseId: 1, sessionNumber: 1, title: 'W10 · Art · Week 10', date: 'Sep 21, 2026', hasPreLearning: true, hasPostLearning: true, status: 'scheduled' },
+  { id: 'art-9', courseId: 1, sessionNumber: 1, title: 'W9 · Art · Week 9', date: 'Sep 14, 2026', hasPreLearning: true, hasPostLearning: true, status: 'scheduled' },
+  { id: 'art-8', courseId: 1, sessionNumber: 1, title: 'W8 · Art · Week 8', date: 'Sep 7, 2026', hasPreLearning: true, hasPostLearning: true, status: 'in_progress' },
+  { id: 'art-7', courseId: 1, sessionNumber: 1, title: 'W7 · Art · Week 7', date: 'Aug 31, 2026', hasPreLearning: true, hasPostLearning: true, status: 'completed' },
+  { id: 'art-6', courseId: 1, sessionNumber: 1, title: 'W6 · Art · Week 6', date: 'Aug 24, 2026', hasPreLearning: true, hasPostLearning: true, status: 'completed' },
+  { id: 'art-5', courseId: 1, sessionNumber: 1, title: 'W5 · Art · Week 5', date: 'Aug 17, 2026', hasPreLearning: true, hasPostLearning: true, status: 'completed' },
+  { id: 'art-4', courseId: 1, sessionNumber: 1, title: 'W4 · Art · Week 4', date: 'Aug 10, 2026', hasPreLearning: true, hasPostLearning: true, status: 'completed' },
+  { id: 'art-3', courseId: 1, sessionNumber: 1, title: 'W3 · Art · Week 3', date: 'Aug 3, 2026', hasPreLearning: true, hasPostLearning: true, status: 'completed' },
+  { id: 'art-2', courseId: 1, sessionNumber: 1, title: 'W2 · Art · Week 2', date: 'Jul 27, 2026', hasPreLearning: true, hasPostLearning: true, status: 'cancelled' },
+  { id: 'art-1', courseId: 1, sessionNumber: 1, title: 'W1 · Art · Week 1', date: 'Jul 20, 2026', hasPreLearning: true, hasPostLearning: true, status: 'completed' },
+];
+
+export const getCourseSessions = (courseId: number, courseName: string, totalSessions: number): CourseSession[] => {
+  if (courseId === 1) {
+    return ART_IG_SESSIONS;
+  }
+  // Generate realistic sessions for other courses
+  const subjectPrefix = courseName.split(' ')[0] || 'Session';
+  const sessions: CourseSession[] = [];
+  const count = Math.min(totalSessions, 10); // show up to 10 recent sessions
+  for (let i = count; i >= 1; i--) {
+    const status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled' =
+      i >= 9 ? 'scheduled' : i === 8 ? 'in_progress' : i === 2 ? 'cancelled' : 'completed';
+    sessions.push({
+      id: `${courseId}-${i}`,
+      courseId,
+      sessionNumber: 1,
+      title: `W${i} · ${subjectPrefix} - Week ${i}`,
+      date: `Sep ${Math.max(1, 25 - (count - i) * 7)}, 2026`,
+      hasPreLearning: true,
+      hasPostLearning: true,
+      status,
+    });
+  }
+  return sessions;
+};
+
+export const getCourseSessionDetail = (
+  session: CourseSession,
+  course?: Course
+): CourseSessionDetail => {
+  const isArt10 = session.id === 'art-10';
+  const courseTitle = course?.name?.split(' — ')[0] || (session.courseId === 1 ? 'Art IGCSE' : 'Course Subject');
+  const classCode = course?.class || 'S4 A';
+  const academicYear = '2026/2027';
+
+  // Exact matching data for Art Week 10 from screenshots
+  if (isArt10 || session.courseId === 1) {
+    const weekNum = session.title.match(/Week\s*(\d+)/i)?.[1] || '10';
+    return {
+      ...session,
+      courseName: 'Art IGCSE',
+      classCode: 'S4 A',
+      academicYear: '2026/2027',
+      beforeClass: {
+        activityType: 'Reading',
+        duration: '10 min',
+        prompt: `Before Art IGCSE: skim a short note on "Art · Week ${weekNum}" — what question do you still have for the teacher?`,
+        resourceUrl: 'https://learn.kreativaglobal.sch.id',
+      },
+      learningObjectives: `Students will engage with: Art · Week ${weekNum}`,
+      inClassContent: `Art IGCSE Term 1 Week ${weekNum} — S4 A`,
+      materials: [],
+      afterClass: {
+        activityType: 'Reflection writing',
+        duration: '15 min',
+        prompt: `Reflect on today's Art IGCSE session ("Art · Week ${weekNum}"): What went well? What will you try next time? Write 4–6 sentences.`,
+      },
+      sessionInfo: {
+        fullDate: session.date.includes('Sep') ? 'September 21, 2026' : session.date,
+        timeSlot: '07:30:00 – 08:15:00',
+        location: 'HS Block',
+        independentStudy: ['Pre-Learning', 'Post-Learning'],
+      },
+    };
+  }
+
+  // Dynamic fallback for any other course session
+  const weekMatch = session.title.match(/W(\d+)/i);
+  const weekNum = weekMatch ? weekMatch[1] : '1';
+  return {
+    ...session,
+    courseName: courseTitle,
+    classCode,
+    academicYear,
+    beforeClass: {
+      activityType: 'Reading',
+      duration: '10 min',
+      prompt: `Before ${courseTitle}: review core concepts for "Week ${weekNum}" — note down any concepts you want clarified.`,
+      resourceUrl: 'https://learn.kreativaglobal.sch.id',
+    },
+    learningObjectives: `Students will engage with: ${courseTitle} · Week ${weekNum}`,
+    inClassContent: `${courseTitle} Term 1 Week ${weekNum} — ${classCode}`,
+    materials: [],
+    afterClass: {
+      activityType: 'Reflection writing',
+      duration: '15 min',
+      prompt: `Reflect on today's ${courseTitle} session ("Week ${weekNum}"): What key insights did you gain? What questions remain?`,
+    },
+    sessionInfo: {
+      fullDate: session.date.length < 15 ? `${session.date}, 2026` : session.date,
+      timeSlot: '08:00:00 – 09:30:00',
+      location: 'HS Block',
+      independentStudy: session.hasPreLearning && session.hasPostLearning
+        ? ['Pre-Learning', 'Post-Learning']
+        : session.hasPreLearning
+          ? ['Pre-Learning']
+          : ['Post-Learning'],
+    },
+  };
+};
+
+// Mock sessions based on Kreativa-LMS-Student Postman collection
+export const WEEKLY_PLAN_MOCK_SESSIONS: Record<string, WeeklyPlanSession[]> = {
+  // Current Week (Oct 19 – 23, 2026): Empty, exactly matching Screenshot 105616!
+  '2026-10-19': [],
+
+  // Previous Week (Oct 12 – 16, 2026): Active sessions with Pre/Post learning
+  '2026-10-12': [
+    {
+      sessionId: 101,
+      courseId: 10,
+      courseName: 'Mathematics IGCSE',
+      courseCode: 'MATH_IG',
+      sessionNumber: 8,
+      title: 'Session 8 · Quadratic Equations & Factorization',
+      date: '2026-10-12',
+      dayOfWeek: 1,
+      time: '08:00 – 09:30',
+      room: 'Room 401',
+      teacher: 'Mr. David Wilson',
+      preDone: true,
+      postDone: true,
+      preQuestion: 'What are the three core methods to solve quadratic equations?',
+      postNote: 'Completed practice set 4B with 95% accuracy.',
+      materials: ['Quadratic_Formula_Summary.pdf', 'Worksheet_8.docx'],
+      status: 'completed',
+    },
+    {
+      sessionId: 102,
+      courseId: 6,
+      courseName: 'English Language IGCSE',
+      courseCode: 'EL_IG',
+      sessionNumber: 8,
+      title: 'Session 8 · Persuasive Essay Writing & Rhetorical Devices',
+      date: '2026-10-12',
+      dayOfWeek: 1,
+      time: '10:00 – 11:30',
+      room: 'Room 302',
+      teacher: 'Ms. Eleanor Vance',
+      preDone: true,
+      postDone: true,
+      preQuestion: 'Define ethos, pathos, and logos in academic argumentation.',
+      postNote: 'Drafted thesis statement and 3 supporting claims.',
+      materials: ['Rhetorical_Techniques_Guide.pdf'],
+      status: 'completed',
+    },
+    {
+      sessionId: 103,
+      courseId: 3,
+      courseName: 'Biology IGCSE',
+      courseCode: 'BIO_IG',
+      sessionNumber: 8,
+      title: 'Session 8 · Plant Nutrition & Photosynthesis Apparatus',
+      date: '2026-10-13',
+      dayOfWeek: 2,
+      time: '08:00 – 09:30',
+      room: 'Science Lab 1',
+      teacher: 'Dr. Aris Nugroho',
+      preDone: true,
+      postDone: true,
+      preQuestion: 'Explain light-dependent vs light-independent stages.',
+      postNote: 'Observed chloroplast leaf cells under microscope 400x.',
+      materials: ['Chloroplast_Diagram.png', 'Lab_Report_Template.pdf'],
+      status: 'completed',
+    },
+    {
+      sessionId: 104,
+      courseId: 4,
+      courseName: 'Chemistry IGCSE',
+      courseCode: 'CHEM_IG',
+      sessionNumber: 8,
+      title: 'Session 8 · Stoichiometry & Molar Mass Calculations',
+      date: '2026-10-13',
+      dayOfWeek: 2,
+      time: '10:00 – 11:30',
+      room: 'Chemistry Lab',
+      teacher: 'Mrs. Ratna Sari',
+      preDone: true,
+      postDone: true,
+      preQuestion: 'How is Avogadro constant applied in titration?',
+      postNote: 'Calculated titration molar concentrations correctly.',
+      materials: ['Molar_Mass_Table.pdf'],
+      status: 'completed',
+    },
+    {
+      sessionId: 105,
+      courseId: 1,
+      courseName: 'Art IGCSE',
+      courseCode: 'ART_IG',
+      sessionNumber: 8,
+      title: 'Session 8 · Expressive Line Drawing & Composition',
+      date: '2026-10-14',
+      dayOfWeek: 3,
+      time: '08:00 – 09:30',
+      room: 'Art Studio B',
+      teacher: 'Mr. Hendra Wijaya',
+      preDone: true,
+      postDone: false,
+      preQuestion: 'Review Bauhaus principles of functional aesthetics.',
+      postNote: '',
+      materials: ['Expressive_Drawing_Brief.pdf'],
+      status: 'in_progress',
+    },
+    {
+      sessionId: 106,
+      courseId: 12,
+      courseName: 'Physics IGCSE',
+      courseCode: 'PHY_IG',
+      sessionNumber: 8,
+      title: 'Session 8 · Newton’s Laws of Motion & Momentum',
+      date: '2026-10-15',
+      dayOfWeek: 4,
+      time: '08:00 – 09:30',
+      room: 'Physics Lab',
+      teacher: 'Mr. Robert Tan',
+      preDone: true,
+      postDone: false,
+      materials: ['Newton_Laws_Simulation.mp4', 'Friction_Formulas.pdf'],
+      status: 'scheduled',
+    },
+    {
+      sessionId: 107,
+      courseId: 9,
+      courseName: 'Islamic Studies IGCSE',
+      courseCode: 'ISL_IG',
+      sessionNumber: 8,
+      title: 'Session 8 · Fiqh Muamalah: Ethics in Business Transactions',
+      date: '2026-10-16',
+      dayOfWeek: 5,
+      time: '08:00 – 09:30',
+      room: 'Auditorium 2',
+      teacher: 'Ust. Ahmad Fauzi',
+      preDone: true,
+      postDone: false,
+      materials: ['Fiqh_Muamalah_Summary.pdf'],
+      status: 'scheduled',
+    },
+  ],
+
+  // Term 1 Kickoff Week (Sep 07 – 11, 2026 as per Postman environment)
+  '2026-09-07': [
+    {
+      sessionId: 201,
+      courseId: 10,
+      courseName: 'Mathematics IGCSE',
+      courseCode: 'MATH_IG',
+      sessionNumber: 1,
+      title: 'Session 1 · Term 1 Course Orientation & Syllabus Review',
+      date: '2026-09-07',
+      dayOfWeek: 1,
+      time: '08:00 – 09:30',
+      room: 'Room 401',
+      teacher: 'Mr. David Wilson',
+      preDone: true,
+      postDone: true,
+      preQuestion: 'What calculators are approved for Cambridge IGCSE?',
+      postNote: 'Registered for Cambridge online portal.',
+      materials: ['Math_IGCSE_Syllabus_2026.pdf'],
+      status: 'completed',
+    },
+  ],
+};
+
+export const getWeeklyPlanForWeek = (weekStartIso: string): WeeklyPlanSession[] => {
+  return WEEKLY_PLAN_MOCK_SESSIONS[weekStartIso] || [];
+};
+
+
