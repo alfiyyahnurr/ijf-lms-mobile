@@ -43,7 +43,14 @@ export const LeaderboardScreen: React.FC = () => {
           </Text>
           <Text style={styles.pointsLabel}>individual points</Text>
           <Text style={styles.pointsSubDetail}>
-            D <Text style={styles.pointsConsolasNumber}>{studentProfile.disciplinePts}</Text>  ·  L <Text style={styles.pointsConsolasNumber}>{studentProfile.literacyPts}</Text>  ·  H <Text style={styles.pointsConsolasNumber}>{studentProfile.habitsPts}</Text>
+            <Text style={styles.pointsCategoryLabelD}>D </Text>
+            <Text style={[styles.pointsConsolasNumber, styles.pointsCategoryNumD]}>{studentProfile.disciplinePts}</Text>
+            <Text style={styles.pointsSubDetailDot}>  ·  </Text>
+            <Text style={styles.pointsCategoryLabelL}>L </Text>
+            <Text style={[styles.pointsConsolasNumber, styles.pointsCategoryNumL]}>{studentProfile.literacyPts}</Text>
+            <Text style={styles.pointsSubDetailDot}>  ·  </Text>
+            <Text style={styles.pointsCategoryLabelH}>H </Text>
+            <Text style={[styles.pointsConsolasNumber, styles.pointsCategoryNumH]}>{studentProfile.habitsPts}</Text>
           </Text>
         </View>
 
@@ -182,6 +189,7 @@ export const LeaderboardScreen: React.FC = () => {
               {jenjangLeaderboard.map((item) => {
                 const isYou = item.isCurrent || item.name.includes('(you)');
                 const displayName = isYou ? item.name.replace(' (you)', '') : item.name;
+                const disciplineVal = isYou ? studentProfile.disciplinePts : (item.disciplinePts ?? 0);
                 const literacyVal = isYou ? studentProfile.literacyPts : (item.literacyPts ?? 0);
                 const habitsVal = isYou ? studentProfile.habitsPts : (item.habitsPts ?? 0);
                 const totalPointsVal = isYou ? studentProfile.points : item.points;
@@ -207,17 +215,22 @@ export const LeaderboardScreen: React.FC = () => {
                         )}
                       </View>
 
-                      {/* Dynamic L and H breakdown badges matching Screenshot 1 */}
-                      {(literacyVal > 0 || habitsVal > 0) && (
+                      {/* Dynamic D, L, H breakdown badges with distinct dashboard colors */}
+                      {(disciplineVal > 0 || literacyVal > 0 || habitsVal > 0) && (
                         <View style={styles.categoryPillsRow}>
+                          {disciplineVal > 0 && (
+                            <View style={styles.categoryPillDiscipline}>
+                              <Text style={styles.categoryPillDisciplineText}>D {disciplineVal}</Text>
+                            </View>
+                          )}
                           {literacyVal > 0 && (
-                            <View style={styles.categoryPillGreen}>
-                              <Text style={styles.categoryPillGreenText}>L {literacyVal}</Text>
+                            <View style={styles.categoryPillLiteracy}>
+                              <Text style={styles.categoryPillLiteracyText}>L {literacyVal}</Text>
                             </View>
                           )}
                           {habitsVal > 0 && (
-                            <View style={styles.categoryPillGreen}>
-                              <Text style={styles.categoryPillGreenText}>H {habitsVal}</Text>
+                            <View style={styles.categoryPillHabits}>
+                              <Text style={styles.categoryPillHabitsText}>H {habitsVal}</Text>
                             </View>
                           )}
                         </View>
@@ -310,6 +323,7 @@ export const LeaderboardScreen: React.FC = () => {
               {classLeaderboard.map((item) => {
                 const isYou = item.isCurrent || item.name.includes('(you)');
                 const displayName = isYou ? item.name.replace(' (you)', '') : item.name;
+                const disciplineVal = isYou ? studentProfile.disciplinePts : (item.disciplinePts ?? 0);
                 const literacyVal = isYou ? studentProfile.literacyPts : (item.literacyPts ?? 0);
                 const habitsVal = isYou ? studentProfile.habitsPts : (item.habitsPts ?? 0);
                 const totalPointsVal = isYou ? studentProfile.points : item.points;
@@ -335,17 +349,22 @@ export const LeaderboardScreen: React.FC = () => {
                         )}
                       </View>
 
-                      {/* Dynamic L and H breakdown badges matching Screenshot 2 */}
-                      {(literacyVal > 0 || habitsVal > 0) && (
+                      {/* Dynamic D, L, H breakdown badges with distinct dashboard colors */}
+                      {(disciplineVal > 0 || literacyVal > 0 || habitsVal > 0) && (
                         <View style={styles.categoryPillsRow}>
+                          {disciplineVal > 0 && (
+                            <View style={styles.categoryPillDiscipline}>
+                              <Text style={styles.categoryPillDisciplineText}>D {disciplineVal}</Text>
+                            </View>
+                          )}
                           {literacyVal > 0 && (
-                            <View style={styles.categoryPillGreen}>
-                              <Text style={styles.categoryPillGreenText}>L {literacyVal}</Text>
+                            <View style={styles.categoryPillLiteracy}>
+                              <Text style={styles.categoryPillLiteracyText}>L {literacyVal}</Text>
                             </View>
                           )}
                           {habitsVal > 0 && (
-                            <View style={styles.categoryPillGreen}>
-                              <Text style={styles.categoryPillGreenText}>H {habitsVal}</Text>
+                            <View style={styles.categoryPillHabits}>
+                              <Text style={styles.categoryPillHabitsText}>H {habitsVal}</Text>
                             </View>
                           )}
                         </View>
@@ -442,6 +461,33 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '600',
     color: '#64748B',
+  },
+  pointsCategoryLabelD: {
+    fontFamily: FONTS.bold,
+    fontWeight: '700',
+    color: '#7E22CE',
+  },
+  pointsCategoryNumD: {
+    color: '#7E22CE',
+  },
+  pointsCategoryLabelL: {
+    fontFamily: FONTS.bold,
+    fontWeight: '700',
+    color: '#0F766E',
+  },
+  pointsCategoryNumL: {
+    color: '#0F766E',
+  },
+  pointsCategoryLabelH: {
+    fontFamily: FONTS.bold,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  pointsCategoryNumH: {
+    color: '#15803D',
+  },
+  pointsSubDetailDot: {
+    color: '#CBD5E1',
   },
   tabsRow: {
     flexDirection: 'row',
@@ -713,7 +759,35 @@ const styles = StyleSheet.create({
     gap: 5,
     marginTop: 3,
   },
-  categoryPillGreen: {
+  categoryPillDiscipline: {
+    backgroundColor: '#F3E8FF',
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryPillDisciplineText: {
+    fontFamily: FONTS.bold,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#7E22CE',
+  },
+  categoryPillLiteracy: {
+    backgroundColor: '#CCFBF1',
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryPillLiteracyText: {
+    fontFamily: FONTS.bold,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F766E',
+  },
+  categoryPillHabits: {
     backgroundColor: '#DCFCE7',
     borderRadius: 5,
     paddingHorizontal: 6,
@@ -721,7 +795,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryPillGreenText: {
+  categoryPillHabitsText: {
     fontFamily: FONTS.bold,
     fontSize: 11,
     fontWeight: '700',
