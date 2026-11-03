@@ -5,20 +5,104 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import AppHeader from '../../components/navigation/AppHeader';
-import ModalSheet from '../../components/modals/ModalSheet';
 import ToastAlert from '../../components/feedback/ToastAlert';
 import ErrorState from '../../components/feedback/ErrorState';
 import { useStudentData } from '../../context/StudentDataContext';
 import { getSchoolWeek } from '../../utils/calendarUtils';
 import { WeeklyPlanSession } from '../../types';
 import { FONTS, SHADOWS } from '../../constants/theme';
+import WeeklyPlanDetailView from './WeeklyPlanDetailView';
+
+// Helper for soft pastel course colors matching web reference screenshot
+const getSubjectPalette = (courseCode: string, courseName: string) => {
+  const code = (courseCode || '').toUpperCase();
+  const name = (courseName || '').toLowerCase();
+
+  if (code.includes('ART') || name.includes('art')) {
+    // Peach / soft orange
+    return {
+      cardBg: '#FFF2E5',
+      badgeText: '#C2410C',
+      border: '#FED7AA',
+    };
+  }
+  if (code.includes('BIO') || name.includes('biology')) {
+    // Lavender / soft violet
+    return {
+      cardBg: '#F0EEFF',
+      badgeText: '#6D28D9',
+      border: '#DDD6FE',
+    };
+  }
+  if (code.includes('CHEM') || name.includes('chemistry')) {
+    // Mint / soft green
+    return {
+      cardBg: '#E6F7ED',
+      badgeText: '#15803D',
+      border: '#BBF7D0',
+    };
+  }
+  if (code.includes('EL') || name.includes('english')) {
+    // Warm neutral / sand
+    return {
+      cardBg: '#F3EFEA',
+      badgeText: '#44403C',
+      border: '#E7E5E4',
+    };
+  }
+  if (code.includes('ISL') || name.includes('islamic')) {
+    // Soft amber / yellow
+    return {
+      cardBg: '#FEF7DA',
+      badgeText: '#B45309',
+      border: '#FDE68A',
+    };
+  }
+  if (code.includes('MATH') || name.includes('mathematics') || name.includes('math')) {
+    // Soft rose / pink
+    return {
+      cardBg: '#FDF0F5',
+      badgeText: '#BE185D',
+      border: '#FBCFE8',
+    };
+  }
+  if (code.includes('PE') || name.includes('physical')) {
+    // Soft buff / golden
+    return {
+      cardBg: '#FEF7DA',
+      badgeText: '#A16207',
+      border: '#FDE68A',
+    };
+  }
+  if (code.includes('PHY') || name.includes('physics')) {
+    // Soft sky blue
+    return {
+      cardBg: '#F0F9FF',
+      badgeText: '#0369A1',
+      border: '#BAE6FD',
+    };
+  }
+  if (code.includes('BI') || name.includes('bahasa')) {
+    // Soft teal / slate
+    return {
+      cardBg: '#F0FDFA',
+      badgeText: '#0F766E',
+      border: '#99F6E4',
+    };
+  }
+  // Default pastel slate
+  return {
+    cardBg: '#F1F5F9',
+    badgeText: '#334155',
+    border: '#E2E8F0',
+  };
+};
 
 export const WeeklyPlanScreen: React.FC = () => {
   const {
@@ -30,27 +114,23 @@ export const WeeklyPlanScreen: React.FC = () => {
     refreshAllData,
   } = useStudentData();
 
-  // weekOffset = 0 represents the active current week (e.g. 19 – 23 October 2026)
-  // Negative offset represents past weeks (e.g. -1 is 12 – 16 October 2026)
-  // User cannot go beyond 0 into future weeks (Next is disabled)
   const [weekOffset, setWeekOffset] = useState<number>(0);
-  const [selectedSession, setSelectedSession] = useState<WeeklyPlanSession | null>(null);
-  const [preQuestionInput, setPreQuestionInput] = useState('');
-  const [postNoteInput, setPostNoteInput] = useState('');
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
+  const [selectedSessionDetail, setSelectedSessionDetail] = useState<WeeklyPlanSession | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Auto-close open session modal when user navigates away from Weekly Plan
+  // Auto-close open detail view when navigating away
   useFocusEffect(
     useCallback(() => {
       return () => {
-        setSelectedSession(null);
+        setSelectedSessionDetail(null);
       };
     }, [])
   );
 
-  // Term 1 Boundary (Sep 7, 2026 is -6 weeks from Oct 19, 2026)
-  const MIN_WEEK_OFFSET = -6;
-  const MAX_WEEK_OFFSET = 0;
+  // Term 1 Boundary
+  const MIN_WEEK_OFFSET = -8;
+  const MAX_WEEK_OFFSET = 2;
 
   // Calculate real dynamic 5-day school week (Monday to Friday)
   const schoolWeek = useMemo(() => {
@@ -61,6 +141,27 @@ export const WeeklyPlanScreen: React.FC = () => {
   const sessions = useMemo(() => {
     return getWeeklyPlan(schoolWeek.weekStartIso);
   }, [schoolWeek.weekStartIso, getWeeklyPlan]);
+
+  // Two-line date range format matching Web Screenshot
+  const { dateLine1, dateLine2 } = useMemo(() => {
+    const monday = schoolWeek.monday;
+    const friday = schoolWeek.friday;
+    const monMonth = monday.toLocaleString('en-US', { month: 'long' });
+    const friMonth = friday.toLocaleString('en-US', { month: 'long' });
+    const year = monday.getFullYear();
+
+    if (monMonth === friMonth) {
+      return {
+        dateLine1: `${monday.getDate()} ${monMonth} – ${friday.getDate()}`,
+        dateLine2: `${friMonth} ${year}`,
+      };
+    } else {
+      return {
+        dateLine1: `${monday.getDate()} ${monMonth} –`,
+        dateLine2: `${friday.getDate()} ${friMonth} ${year}`,
+      };
+    }
+  }, [schoolWeek]);
 
   const isPrevDisabled = weekOffset <= MIN_WEEK_OFFSET;
   const isNextDisabled = weekOffset >= MAX_WEEK_OFFSET;
@@ -77,28 +178,31 @@ export const WeeklyPlanScreen: React.FC = () => {
     }
   };
 
-  const handleOpenSessionModal = (session: WeeklyPlanSession, isFutureDate: boolean) => {
-    if (isFutureDate) {
-      setToastMessage('This date is locked. Future sessions cannot be accessed in advance.');
-      return;
-    }
-    setSelectedSession(session);
-    setPreQuestionInput(session.preQuestion || '');
-    setPostNoteInput(session.postNote || '');
-  };
+  // Sessions for the currently selected day tab
+  const selectedDaySessions = useMemo(() => {
+    const dayNumber = selectedDayIndex + 1; // 1 = Monday, ..., 5 = Friday
+    return sessions.filter((s: WeeklyPlanSession) => s.dayOfWeek === dayNumber);
+  }, [sessions, selectedDayIndex]);
 
-  const handleSaveProgress = () => {
-    if (selectedSession) {
-      selectedSession.preQuestion = preQuestionInput;
-      selectedSession.postNote = postNoteInput;
-      selectedSession.preDone = true;
-      if (postNoteInput.trim().length > 0) {
-        selectedSession.postDone = true;
-      }
-      setToastMessage(`Session progress for "${selectedSession.courseName}" updated!`);
-      setSelectedSession(null);
-    }
-  };
+  const currentSelectedDay = schoolWeek.days[selectedDayIndex] || schoolWeek.days[0];
+
+  // If session detail is selected, show full-screen detail view
+  if (selectedSessionDetail) {
+    const dayName = currentSelectedDay?.dayName || 'Monday';
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <AppHeader showTitle={false} />
+        <WeeklyPlanDetailView
+          session={selectedSessionDetail}
+          dayName={dayName}
+          onBack={() => setSelectedSessionDetail(null)}
+          onUpdateSession={(updated) => {
+            setToastMessage(`Updated notes for ${updated.courseName}`);
+          }}
+        />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -120,8 +224,8 @@ export const WeeklyPlanScreen: React.FC = () => {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={refreshAllData}
-            colors={['#4F089F']}
-            tintColor="#4F089F"
+            colors={['#2563EB']}
+            tintColor="#2563EB"
           />
         }
       >
@@ -147,271 +251,164 @@ export const WeeklyPlanScreen: React.FC = () => {
               </Text>
             </View>
 
-        {/* Date Navigator matching Screenshot */}
-        <View style={styles.navigatorRow}>
-          {/* < Prev Button */}
-          <TouchableOpacity
-            style={[styles.navButton, isPrevDisabled && styles.navButtonDisabled]}
-            onPress={handlePrevWeek}
-            activeOpacity={isPrevDisabled ? 1 : 0.7}
-            disabled={isPrevDisabled}
-          >
-            <Ionicons
-              name="chevron-back"
-              size={14}
-              color={isPrevDisabled ? '#E5E0D8' : '#1B2D4F'}
-            />
-            <Text
-              style={[
-                styles.navButtonText,
-                isPrevDisabled && styles.navButtonTextDisabled,
-              ]}
-            >
-              Prev
+            {/* Date Navigator matching Web Screenshot */}
+            <View style={styles.navigatorRow}>
+              {/* < Prev Button */}
+              <TouchableOpacity
+                style={[styles.navButton, isPrevDisabled && styles.navButtonDisabled]}
+                onPress={handlePrevWeek}
+                activeOpacity={isPrevDisabled ? 1 : 0.7}
+                disabled={isPrevDisabled}
+              >
+                <Ionicons
+                  name="chevron-back"
+                  size={14}
+                  color={isPrevDisabled ? '#94A3B8' : '#1B2D4F'}
+                />
+                <Text
+                  style={[
+                    styles.navButtonText,
+                    isPrevDisabled && styles.navButtonTextDisabled,
+                  ]}
+                >
+                  Prev
+                </Text>
+              </TouchableOpacity>
+
+              {/* Dynamic Real Calendar Range (2-Line Centered Format matching Web) */}
+              <View style={styles.dateCenter}>
+                <Text style={styles.dateRangeLine1} numberOfLines={1}>
+                  {dateLine1}
+                </Text>
+                <Text style={styles.dateRangeLine2} numberOfLines={1}>
+                  {dateLine2}
+                </Text>
+              </View>
+
+              {/* Next > Button */}
+              <TouchableOpacity
+                style={[styles.navButton, isNextDisabled && styles.navButtonDisabled]}
+                onPress={handleNextWeek}
+                activeOpacity={isNextDisabled ? 1 : 0.7}
+                disabled={isNextDisabled}
+              >
+                <Text
+                  style={[
+                    styles.navButtonText,
+                    isNextDisabled && styles.navButtonTextDisabled,
+                  ]}
+                >
+                  Next
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={14}
+                  color={isNextDisabled ? '#94A3B8' : '#1B2D4F'}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* 5 Day Selector Pills (Mon, Tue, Wed, Thu, Fri) */}
+            <View style={styles.dayTabsRow}>
+              {schoolWeek.days.map((day, idx) => {
+                const isSelected = selectedDayIndex === idx;
+                const dayNum = idx + 1;
+                const dayLessonsCount = sessions.filter((s) => s.dayOfWeek === dayNum).length;
+
+                return (
+                  <TouchableOpacity
+                    key={day.dateString}
+                    style={[
+                      styles.dayTabCard,
+                      isSelected ? styles.dayTabCardActive : styles.dayTabCardInactive,
+                    ]}
+                    onPress={() => setSelectedDayIndex(idx)}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.dayTabTitle,
+                        isSelected ? styles.dayTabTitleActive : styles.dayTabTitleInactive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {day.dayShort} {day.dayNumber}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.dayTabSubtitle,
+                        isSelected ? styles.dayTabSubtitleActive : styles.dayTabSubtitleInactive,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {dayLessonsCount} lessons
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Selected Day's Schedule Heading */}
+            <Text style={styles.scheduleHeading}>
+              {currentSelectedDay?.isToday
+                ? "Today's schedule"
+                : `${currentSelectedDay?.dayName || 'Day'}'s schedule`}
             </Text>
-          </TouchableOpacity>
 
-          {/* Dynamic Real Calendar Range (e.g. 19 October – 23 October 2026) */}
-          <View style={styles.dateCenter}>
-            <Text style={styles.dateRangeText}>
-              {schoolWeek.rangeLabel} {schoolWeek.yearLabel}
-            </Text>
-          </View>
+            {/* Timeline Schedule List */}
+            {selectedDaySessions.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyMessageText}>
+                  No sessions scheduled for this day.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.timelineList}>
+                {selectedDaySessions.map((session, sIdx) => {
+                  const palette = getSubjectPalette(session.courseCode, session.courseName);
+                  const timeParts = session.time.split('–').map((t) => t.trim());
+                  const isLast = sIdx === selectedDaySessions.length - 1;
 
-          {/* Next > Button (Disabled on current week as shown in reference photo) */}
-          <TouchableOpacity
-            style={[styles.navButton, isNextDisabled && styles.navButtonDisabled]}
-            onPress={handleNextWeek}
-            activeOpacity={isNextDisabled ? 1 : 0.7}
-            disabled={isNextDisabled}
-          >
-            <Text
-              style={[
-                styles.navButtonText,
-                isNextDisabled && styles.navButtonTextDisabled,
-              ]}
-            >
-              Next
-            </Text>
-            <Ionicons
-              name="chevron-forward"
-              size={14}
-              color={isNextDisabled ? '#E5E0D8' : '#1B2D4F'}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Sessions Content */}
-        {sessions.length === 0 ? (
-          /* Empty State Text Centered matching Screenshot 105616 */
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyMessageText}>
-              No sessions scheduled this week.
-            </Text>
-          </View>
-        ) : (
-          /* 5 School Days (Monday to Friday) List with Future Locking */
-          <View style={styles.daysList}>
-            {schoolWeek.days.map((day) => {
-              const daySessions = sessions.filter(
-                (s: WeeklyPlanSession) => s.dayOfWeek === (day.dayName === 'Monday' ? 1 : day.dayName === 'Tuesday' ? 2 : day.dayName === 'Wednesday' ? 3 : day.dayName === 'Thursday' ? 4 : 5)
-              );
-
-              return (
-                <View key={day.dateString} style={styles.daySection}>
-                  {/* Day Header Row */}
-                  <View style={styles.dayHeaderRow}>
-                    <View style={styles.dayTitleWrap}>
-                      <Text
-                        style={[
-                          styles.dayNameText,
-                          day.isToday && styles.dayNameToday,
-                          day.isFuture && styles.dayNameFuture,
-                        ]}
-                      >
-                        {day.dayName}, {day.dayNumber} {day.monthName.slice(0, 3)}
-                      </Text>
-                      {day.isToday && (
-                        <View style={styles.todayBadge}>
-                          <Text style={styles.todayBadgeText}>Today</Text>
-                        </View>
-                      )}
-                    </View>
-
-                    {day.isFuture && (
-                      <View style={styles.lockedBadge}>
-                        <Ionicons name="lock-closed" size={11} color="#94A3B8" />
-                        <Text style={styles.lockedBadgeText}>Locked</Text>
+                  return (
+                    <View key={session.sessionId} style={styles.timelineRow}>
+                      {/* Left: Time Range */}
+                      <View style={styles.timeCol}>
+                        <Text style={styles.timeStart}>{timeParts[0]} –</Text>
+                        <Text style={styles.timeEnd}>{timeParts[1] || ''}</Text>
                       </View>
-                    )}
-                  </View>
 
-                  {/* Day Sessions or No Class */}
-                  {daySessions.length === 0 ? (
-                    <View style={styles.noDaySessionCard}>
-                      <Text style={styles.noDaySessionText}>No sessions scheduled.</Text>
-                    </View>
-                  ) : (
-                    daySessions.map((session: WeeklyPlanSession) => (
+                      {/* Middle: Timeline track & Dot */}
+                      <View style={styles.trackCol}>
+                        <View style={styles.trackDot} />
+                        {!isLast && <View style={styles.trackLine} />}
+                      </View>
+
+                      {/* Right: Pastel Lesson Card */}
                       <TouchableOpacity
-                        key={session.sessionId}
                         style={[
-                          styles.sessionCard,
-                          day.isFuture && styles.sessionCardLocked,
+                          styles.lessonCard,
+                          { backgroundColor: palette.cardBg },
                         ]}
-                        onPress={() => handleOpenSessionModal(session, day.isFuture)}
-                        activeOpacity={day.isFuture ? 0.9 : 0.75}
+                        onPress={() => setSelectedSessionDetail(session)}
+                        activeOpacity={0.8}
                       >
-                        <View style={styles.sessionCardHeader}>
-                          <View style={styles.courseCodeBadge}>
-                            <Text style={styles.courseCodeBadgeText}>
-                              {session.courseCode}
-                            </Text>
-                          </View>
-                          <Text style={styles.sessionTimeText}>{session.time}</Text>
+                        <View style={styles.subjectBadge}>
+                          <Text style={[styles.subjectBadgeText, { color: palette.badgeText }]}>
+                            {session.courseName}
+                          </Text>
                         </View>
-
-                        <Text
-                          style={[
-                            styles.sessionTitleText,
-                            day.isFuture && styles.sessionTitleTextLocked,
-                          ]}
-                          numberOfLines={2}
-                        >
+                        <Text style={styles.lessonTitle} numberOfLines={2}>
                           {session.title}
                         </Text>
-
-                        <Text style={styles.sessionMetaText} numberOfLines={1}>
-                          {session.room} • {session.teacher}
-                        </Text>
-
-                        {/* Learning Progress Pills (aligned with Postman schema) */}
-                        <View style={styles.pillsRow}>
-                          <View
-                            style={[
-                              styles.progressPill,
-                              session.preDone
-                                ? styles.progressPillDone
-                                : styles.progressPillPending,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.progressPillText,
-                                session.preDone
-                                  ? styles.progressPillTextDone
-                                  : styles.progressPillTextPending,
-                              ]}
-                            >
-                              Pre-learning: {session.preDone ? 'Done' : 'Pending'}
-                            </Text>
-                          </View>
-
-                          <View
-                            style={[
-                              styles.progressPill,
-                              session.postDone
-                                ? styles.progressPillDone
-                                : styles.progressPillPending,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.progressPillText,
-                                session.postDone
-                                  ? styles.progressPillTextDone
-                                  : styles.progressPillTextPending,
-                              ]}
-                            >
-                              Post-learning: {session.postDone ? 'Done' : 'Pending'}
-                            </Text>
-                          </View>
-                        </View>
                       </TouchableOpacity>
-                    ))
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </>
         )}
       </ScrollView>
-
-      {/* Session Progress Modal (based on Postman /api/student/sessions/:id/progress) */}
-      <ModalSheet
-        visible={!!selectedSession}
-        title="Session Details"
-        onClose={() => setSelectedSession(null)}
-      >
-        {selectedSession && (
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeaderRow}>
-              <View style={styles.courseCodeBadge}>
-                <Text style={styles.courseCodeBadgeText}>
-                  {selectedSession.courseCode}
-                </Text>
-              </View>
-              <Text style={styles.modalTimeText}>{selectedSession.time}</Text>
-            </View>
-
-            <Text style={styles.modalTitle}>{selectedSession.title}</Text>
-            <Text style={styles.modalMeta}>
-              {selectedSession.room} • {selectedSession.teacher}
-            </Text>
-
-            {/* Materials Section */}
-            {selectedSession.materials && selectedSession.materials.length > 0 && (
-              <View style={styles.materialsBox}>
-                <Text style={styles.sectionHeading}>Materials & Resources</Text>
-                {selectedSession.materials.map((mat, idx) => (
-                  <View key={idx} style={styles.materialItem}>
-                    <Ionicons name="document-text-outline" size={14} color="#2563EB" />
-                    <Text style={styles.materialText}>{mat}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Pre-learning Question */}
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>PRE-LEARNING QUESTION / INQUIRY</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Write your preliminary inquiry here..."
-                placeholderTextColor="#94A3B8"
-                value={preQuestionInput}
-                onChangeText={setPreQuestionInput}
-                multiline
-                numberOfLines={2}
-              />
-            </View>
-
-            {/* Post-learning Notes */}
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>POST-LEARNING REFLECTION & NOTES</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="What did you learn in this session?..."
-                placeholderTextColor="#94A3B8"
-                value={postNoteInput}
-                onChangeText={setPostNoteInput}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={styles.saveProgressBtn}
-              onPress={handleSaveProgress}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.saveProgressBtnText}>Save Session Progress</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </ModalSheet>
     </SafeAreaView>
   );
 };
@@ -419,14 +416,7 @@ export const WeeklyPlanScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  toastContainer: {
-    position: 'absolute',
-    top: 60,
-    left: 16,
-    right: 16,
-    zIndex: 999,
+    backgroundColor: '#F8FAFC',
   },
   scroll: {
     flex: 1,
@@ -454,7 +444,7 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     paddingHorizontal: 18,
     paddingVertical: 16,
-    marginBottom: 16,
+    marginBottom: 20,
     ...SHADOWS.sm,
   },
   profileLabel: {
@@ -481,11 +471,12 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: '#78716C',
   },
+  /* Date Navigator 2-Line */
   navigatorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 36,
+    marginBottom: 20,
   },
   navButton: {
     flexDirection: 'row',
@@ -493,293 +484,182 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 8,
     gap: 4,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    minWidth: 74,
+    justifyContent: 'center',
+    ...SHADOWS.sm,
   },
   navButtonDisabled: {
     backgroundColor: '#FAF8F5',
     borderColor: '#E5E0D8',
-    shadowOpacity: 0,
-    elevation: 0,
+    opacity: 0.5,
   },
   navButtonText: {
     fontFamily: FONTS.semiBold,
     fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '600',
     color: '#1B2D4F',
   },
   navButtonTextDisabled: {
-    color: '#E5E0D8',
+    color: '#94A3B8',
   },
   dateCenter: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    marginHorizontal: 8,
   },
-  dateRangeText: {
-    fontFamily: FONTS.semiBold,
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: '600',
+  dateRangeLine1: {
+    fontFamily: FONTS.bold,
+    fontSize: 14.5,
+    lineHeight: 20,
     color: '#1B2D4F',
     textAlign: 'center',
   },
+  dateRangeLine2: {
+    fontFamily: FONTS.bold,
+    fontSize: 14.5,
+    lineHeight: 20,
+    color: '#1B2D4F',
+    textAlign: 'center',
+  },
+  /* 5 Day Selector Row */
+  dayTabsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginBottom: 24,
+  },
+  dayTabCard: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderRadius: 14,
+  },
+  dayTabCardActive: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...SHADOWS.sm,
+  },
+  dayTabCardInactive: {
+    backgroundColor: '#F5F2EB',
+    borderWidth: 1,
+    borderColor: '#EBE7DF',
+  },
+  dayTabTitle: {
+    fontFamily: FONTS.bold,
+    fontSize: 12.5,
+    marginBottom: 3,
+  },
+  dayTabTitleActive: {
+    color: '#1B2D4F',
+  },
+  dayTabTitleInactive: {
+    color: '#1B2D4F',
+  },
+  dayTabSubtitle: {
+    fontFamily: FONTS.regular,
+    fontSize: 10.5,
+  },
+  dayTabSubtitleActive: {
+    color: '#64748B',
+  },
+  dayTabSubtitleInactive: {
+    color: '#78716C',
+  },
+  /* Schedule Heading */
+  scheduleHeading: {
+    fontFamily: FONTS.bold,
+    fontSize: 18,
+    color: '#1B2D4F',
+    marginBottom: 16,
+  },
+  /* Timeline Schedule List */
+  timelineList: {
+    paddingBottom: 24,
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  timeCol: {
+    width: 62,
+    alignItems: 'flex-start',
+    paddingTop: 4,
+  },
+  timeStart: {
+    fontFamily: FONTS.medium,
+    fontSize: 12.5,
+    color: '#475569',
+    lineHeight: 17,
+  },
+  timeEnd: {
+    fontFamily: FONTS.medium,
+    fontSize: 12.5,
+    color: '#475569',
+    lineHeight: 17,
+  },
+  trackCol: {
+    width: 22,
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    paddingTop: 8,
+  },
+  trackDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: '#1E293B',
+    zIndex: 2,
+  },
+  trackLine: {
+    width: 1.5,
+    backgroundColor: '#E2E8F0',
+    flex: 1,
+    marginTop: 2,
+  },
+  lessonCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 14,
+    marginLeft: 6,
+    ...SHADOWS.sm,
+  },
+  subjectBadge: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3.5,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  subjectBadgeText: {
+    fontFamily: FONTS.bold,
+    fontSize: 12,
+  },
+  lessonTitle: {
+    fontFamily: FONTS.medium,
+    fontSize: 13.5,
+    color: '#1E293B',
+    lineHeight: 19,
+  },
   emptyContainer: {
-    paddingVertical: 60,
+    paddingVertical: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyMessageText: {
     fontFamily: FONTS.titleMedium,
-    fontSize: 18,
-    lineHeight: 28,
-    fontWeight: '500',
-    color: '#0F172A',
-    textAlign: 'center',
-  },
-  /* Days list & session cards */
-  daysList: {
-    gap: 20,
-  },
-  daySection: {
-    gap: 8,
-  },
-  dayHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 2,
-  },
-  dayTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dayNameText: {
-    fontFamily: FONTS.bold,
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#1B2D4F',
-  },
-  dayNameToday: {
-    color: '#2563EB',
-  },
-  dayNameFuture: {
-    color: '#94A3B8',
-  },
-  todayBadge: {
-    backgroundColor: '#DBEAFE',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  todayBadgeText: {
-    fontFamily: FONTS.bold,
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
-  lockedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  lockedBadgeText: {
-    fontFamily: FONTS.semiBold,
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94A3B8',
-  },
-  noDaySessionCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 14,
-    alignItems: 'center',
-  },
-  noDaySessionText: {
-    fontFamily: FONTS.regular,
-    fontSize: 12.5,
-    color: '#78716C',
-  },
-  sessionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 14,
-    ...SHADOWS.sm,
-  },
-  sessionCardLocked: {
-    backgroundColor: '#FAFAFA',
-    borderColor: '#E4E4E7',
-    opacity: 0.75,
-  },
-  sessionCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  courseCodeBadge: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  courseCodeBadgeText: {
-    fontFamily: FONTS.bold,
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2563EB',
-  },
-  sessionTimeText: {
-    fontFamily: FONTS.medium,
-    fontSize: 12,
-    color: '#78716C',
-    fontWeight: '500',
-  },
-  sessionTitleText: {
-    fontFamily: FONTS.bold,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1B2D4F',
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-  sessionTitleTextLocked: {
-    color: '#78716C',
-  },
-  sessionMetaText: {
-    fontFamily: FONTS.regular,
-    fontSize: 12.5,
-    color: '#78716C',
-    marginBottom: 10,
-  },
-  pillsRow: {
-    flexDirection: 'row',
-    gap: 6,
-    flexWrap: 'wrap',
-  },
-  progressPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  progressPillDone: {
-    backgroundColor: '#DCFCE7',
-  },
-  progressPillPending: {
-    backgroundColor: '#FEF3C7',
-  },
-  progressPillText: {
-    fontFamily: FONTS.semiBold,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  progressPillTextDone: {
-    color: '#15803D',
-  },
-  progressPillTextPending: {
-    color: '#B45309',
-  },
-  /* Modal Content */
-  modalContent: {
-    paddingBottom: 20,
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  modalTimeText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  modalTitle: {
     fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-    lineHeight: 22,
-    marginBottom: 4,
-  },
-  modalMeta: {
-    fontSize: 13,
     color: '#64748B',
-    marginBottom: 14,
-  },
-  materialsBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 14,
-  },
-  sectionHeading: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#475569',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  materialItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  materialText: {
-    fontSize: 12.5,
-    color: '#2563EB',
-    fontWeight: '500',
-  },
-  formGroup: {
-    marginBottom: 12,
-  },
-  inputLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  modalInput: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13,
-    color: '#0F172A',
-    textAlignVertical: 'top',
-  },
-  saveProgressBtn: {
-    backgroundColor: '#2563EB',
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  saveProgressBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '700',
+    textAlign: 'center',
   },
 });
 
