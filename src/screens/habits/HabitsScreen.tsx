@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -705,7 +705,7 @@ const styles = StyleSheet.create({
   },
   toastContainer: {
     position: 'absolute',
-    top: 16,
+    top: Platform.OS === 'ios' ? 76 : 68,
     right: 16,
     zIndex: 99999,
   },

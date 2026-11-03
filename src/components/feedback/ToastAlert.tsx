@@ -20,6 +20,7 @@ export interface ToastAlertProps {
   duration?: number;
   floating?: boolean; // When true, positions absolutely at top right
   position?: 'top-right' | 'top-center' | 'top-left';
+  topOffset?: number; // Distance from top edge, defaults below header
   style?: StyleProp<ViewStyle>;
 }
 
@@ -30,8 +31,9 @@ export const ToastAlert: React.FC<ToastAlertProps> = ({
   onHide,
   onClose,
   duration = 3200,
-  floating = false,
+  floating = true,
   position = 'top-right',
+  topOffset,
   style,
 }) => {
   const translateY = useRef(new Animated.Value(-16)).current;
@@ -113,11 +115,12 @@ export const ToastAlert: React.FC<ToastAlertProps> = ({
 
   const getFloatingStyle = (): ViewStyle | undefined => {
     if (!floating) return undefined;
-    const topOffset = Platform.OS === 'ios' ? 52 : 16;
+    const defaultOffset = Platform.OS === 'ios' ? 76 : 68;
+    const actualTop = topOffset !== undefined ? topOffset : defaultOffset;
     if (position === 'top-center') {
       return {
         position: 'absolute',
-        top: topOffset,
+        top: actualTop,
         alignSelf: 'center',
         zIndex: 99999,
       };
@@ -125,14 +128,14 @@ export const ToastAlert: React.FC<ToastAlertProps> = ({
     if (position === 'top-left') {
       return {
         position: 'absolute',
-        top: topOffset,
+        top: actualTop,
         left: 16,
         zIndex: 99999,
       };
     }
     return {
       position: 'absolute',
-      top: topOffset,
+      top: actualTop,
       right: 16,
       zIndex: 99999,
     };

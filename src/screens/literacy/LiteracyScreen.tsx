@@ -1323,7 +1323,7 @@ const styles = StyleSheet.create({
   },
   toastContainer: {
     position: 'absolute',
-    top: 60,
+    top: Platform.OS === 'ios' ? 76 : 68,
     left: 16,
     right: 16,
     zIndex: 9999,

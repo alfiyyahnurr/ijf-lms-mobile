@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { BottomTabParamList } from '../../types/navigation';
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   },
   toastContainer: {
     position: 'absolute',
-    top: 60,
+    top: Platform.OS === 'ios' ? 76 : 68,
     left: 16,
     right: 16,
     zIndex: 999,

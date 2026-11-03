@@ -192,6 +192,13 @@ export const WeeklyPlanScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <AppHeader showTitle={false} />
+        <ToastAlert
+          visible={Boolean(toastMessage)}
+          message={toastMessage || ''}
+          type="success"
+          floating
+          onClose={() => setToastMessage(null)}
+        />
         <WeeklyPlanDetailView
           session={selectedSessionDetail}
           dayName={dayName}

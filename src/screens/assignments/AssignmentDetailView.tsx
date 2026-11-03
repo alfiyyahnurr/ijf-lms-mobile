@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, RADIUS, SPACING, SHADOWS, FONTS } from '../../constants/theme';
@@ -87,6 +88,18 @@ export const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({
 
   return (
     <View style={styles.container}>
+      {/* Success Toast Indicator if submitted in standalone mode */}
+      {!onSubmitSuccess && (
+        <ToastAlert
+          visible={successToast}
+          message="Assignment successfully submitted! Status updated."
+          type="success"
+          floating
+          topOffset={Platform.OS === 'ios' ? 76 : 68}
+          onClose={() => setSuccessToast(false)}
+        />
+      )}
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -119,15 +132,6 @@ export const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({
           </View>
           <Text style={styles.courseSubtitle}>{assignment.course}</Text>
         </View>
-
-        {/* Success Toast Indicator if just submitted */}
-        <ToastAlert
-          visible={successToast}
-          message="Assignment successfully submitted! Status updated."
-          type="success"
-          floating
-          onClose={() => setSuccessToast(false)}
-        />
 
         {/* Card 1: Instructions matching Gambar 1 */}
         <View style={styles.card}>
