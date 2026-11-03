@@ -6,11 +6,11 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, RADIUS, SPACING, SHADOWS, FONTS } from '../../constants/theme';
 import { Assignment } from '../../types';
-import CustomButton from '../../components/common/CustomButton';
 import ToastAlert from '../../components/feedback/ToastAlert';
 
 interface AssignmentDetailViewProps {
@@ -216,15 +216,24 @@ export const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({
               />
 
               <View style={styles.actionRow}>
-                <CustomButton
-                  title={isSubmitting ? 'Uploading...' : 'Submit Assignment'}
-                  variant="primary"
-                  size="md"
-                  icon="cloud-upload"
-                  fullWidth
+                <TouchableOpacity
+                  style={[
+                    styles.submitButton,
+                    (isSubmitting || isDeadlinePassed) && styles.submitButtonDisabled,
+                  ]}
+                  activeOpacity={0.85}
                   onPress={handleSubmit}
-                  disabled={isSubmitting}
-                />
+                  disabled={isSubmitting || isDeadlinePassed}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Ionicons name="cloud-upload" size={19} color="#FFFFFF" style={styles.submitButtonIcon} />
+                  )}
+                  <Text style={styles.submitButtonText}>
+                    {isSubmitting ? 'Submitting...' : 'Submit Assignment'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -246,7 +255,7 @@ export const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({
             <Text style={styles.detailValue}>100.00</Text>
           </View>
 
-          <View style={styles.detailItem}>
+          <View style={[styles.detailItem, { marginBottom: 0 }]}>
             <Text style={styles.detailLabel}>Type</Text>
             <Text style={styles.detailValue}>Individual</Text>
           </View>
@@ -373,10 +382,10 @@ const styles = StyleSheet.create({
   },
   cardHeaderTitle: {
     fontFamily: FONTS.title,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#0F172A',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   instructionBody: {
     fontFamily: FONTS.regular,
@@ -418,17 +427,17 @@ const styles = StyleSheet.create({
     maxWidth: 300,
   },
   detailItem: {
-    marginBottom: 14,
+    marginBottom: 16,
   },
   detailLabel: {
     fontFamily: FONTS.regular,
     fontSize: 13,
-    color: '#94A3B8',
+    color: '#64748B',
     marginBottom: 4,
   },
   detailValue: {
     fontFamily: FONTS.semiBold,
-    fontSize: 14.5,
+    fontSize: 15.5,
     color: '#0F172A',
   },
   detailValueExpired: {
@@ -438,47 +447,48 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   uploadForm: {
-    marginTop: 4,
+    marginTop: 2,
   },
   uploadPrompt: {
-    fontFamily: FONTS.semiBold,
-    fontSize: 13,
-    color: '#0F172A',
-    marginBottom: 8,
+    fontFamily: FONTS.medium,
+    fontSize: 13.5,
+    color: '#334155',
+    marginBottom: 10,
   },
   dropZone: {
     borderWidth: 1.5,
     borderColor: '#93C5FD',
     borderStyle: 'dashed',
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: '#EFF6FF',
-    paddingVertical: 24,
+    paddingVertical: 26,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   uploadIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#DBEAFE',
+    ...SHADOWS.sm,
   },
   dropZoneMain: {
-    fontFamily: FONTS.bold,
-    fontSize: 13.5,
+    fontFamily: FONTS.semiBold,
+    fontSize: 14.5,
     color: '#2563EB',
+    marginBottom: 3,
   },
   dropZoneSub: {
     fontFamily: FONTS.regular,
-    fontSize: 11.5,
+    fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
   },
   fileSelectedBox: {
     flexDirection: 'row',
@@ -487,9 +497,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF6FF',
     borderWidth: 1,
     borderColor: '#BFDBFE',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 16,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 18,
   },
   fileSelectedLeft: {
     flexDirection: 'row',
@@ -499,12 +509,12 @@ const styles = StyleSheet.create({
   },
   selectedFileName: {
     fontFamily: FONTS.semiBold,
-    fontSize: 13,
+    fontSize: 13.5,
     color: '#0F172A',
   },
   selectedFileSize: {
     fontFamily: FONTS.regular,
-    fontSize: 11,
+    fontSize: 11.5,
     color: '#64748B',
     marginTop: 2,
   },
@@ -512,25 +522,48 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   inputLabel: {
-    fontFamily: FONTS.semiBold,
-    fontSize: 12.5,
-    color: '#0F172A',
-    marginBottom: 6,
+    fontFamily: FONTS.medium,
+    fontSize: 13.5,
+    color: '#334155',
+    marginBottom: 8,
   },
   noteInput: {
     fontFamily: FONTS.regular,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: '#FFFFFF',
-    padding: 10,
-    fontSize: 13,
+    padding: 14,
+    fontSize: 13.5,
     color: '#0F172A',
-    minHeight: 70,
-    marginBottom: 16,
+    minHeight: 88,
+    marginBottom: 18,
+    lineHeight: 20,
   },
   actionRow: {
-    marginTop: 4,
+    marginTop: 2,
+  },
+  submitButton: {
+    backgroundColor: COLORS.accentBlue,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 50,
+    borderRadius: 12,
+    gap: 8,
+    ...SHADOWS.sm,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonIcon: {
+    marginRight: 2,
+  },
+  submitButtonText: {
+    fontFamily: FONTS.bold,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   attachedFilePill: {
     flexDirection: 'row',

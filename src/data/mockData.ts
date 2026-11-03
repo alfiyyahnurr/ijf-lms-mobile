@@ -54,7 +54,7 @@ export const COURSES_DATA: Course[] = [
 ];
 
 export const ASSIGNMENTS_DATA: Assignment[] = [
-  { id: 1, title: "Civic Education/History IGCSE — Application Project (Week 8)", course: "Civic Education/History IGCSE — S4 A 2026/2027", dueDate: "Sep 11, 2026", score: "—", status: "pending" },
+  { id: 1, title: "Civic Education/History IGCSE — Application Project (Week 8)", course: "Civic Education/History IGCSE — S4 A 2026/2027", dueDate: "Nov 11, 2026", score: "—", status: "pending" },
   { id: 2, title: "ICT / Computer Science IGCSE — Application Project (Week 8)", course: "ICT / Computer Science IGCSE — S4 A 2026/2027", dueDate: "Sep 11, 2026", score: "—", status: "pending" },
   { id: 3, title: "Art IGCSE — Application Project (Week 8)", course: "Art IGCSE — S4 A 2026/2027", dueDate: "Sep 11, 2026", score: "—", status: "pending" },
   { id: 31, title: "Art IGCSE — Practice Task (Week 4)", course: "Art IGCSE — S4 A 2026/2027", dueDate: "Aug 14, 2026", score: "—", status: "pending" },

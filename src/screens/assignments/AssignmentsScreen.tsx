@@ -10,7 +10,7 @@ import ToastAlert from '../../components/feedback/ToastAlert';
 import EmptyState from '../../components/feedback/EmptyState';
 import ErrorState from '../../components/feedback/ErrorState';
 import CardSkeleton from '../../components/feedback/CardSkeleton';
-import { FONTS, SHADOWS } from '../../constants/theme';
+import { COLORS, FONTS, SHADOWS } from '../../constants/theme';
 import AssignmentDetailView from './AssignmentDetailView';
 
 export const AssignmentsScreen: React.FC = () => {
@@ -98,8 +98,8 @@ export const AssignmentsScreen: React.FC = () => {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={refreshAllData}
-              colors={['#4F089F']}
-              tintColor="#4F089F"
+              colors={[COLORS.accentBlue]}
+              tintColor={COLORS.accentBlue}
             />
           }
         >
