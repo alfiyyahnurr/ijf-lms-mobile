@@ -49,7 +49,10 @@ export const CustomDrawerContent: React.FC<DrawerContentComponentProps> = ({
   const navigateTo = (tabName: string) => {
     navigation.navigate('MainTabs' as any, {
       screen: tabName,
-      params: tabName === 'AssignmentsTab' ? { isDetail: false } : undefined,
+      params: {
+        isDetail: false,
+        resetKey: Date.now(),
+      },
     });
     navigation.closeDrawer();
   };

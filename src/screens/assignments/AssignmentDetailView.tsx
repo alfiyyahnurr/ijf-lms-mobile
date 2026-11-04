@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,11 @@ export const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({
   const [submissionNote, setSubmissionNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successToast, setSuccessToast] = useState(false);
+  const scrollRef = useRef<any>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [assignment.id]);
 
   // Check if deadline has passed (e.g. Sep / Aug / Jul 2026 are expired in academic timeline)
   const isDeadlinePassed = (() => {
@@ -101,6 +106,7 @@ export const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({
       )}
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

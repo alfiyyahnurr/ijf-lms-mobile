@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { COLORS, RADIUS, SPACING, SHADOWS, FONTS } from '../../constants/theme';
 import {
   INITIAL_LITERACY_ENTRIES,
@@ -77,6 +77,11 @@ export const LiteracyScreen: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [deleteToastVisible, setDeleteToastVisible] = useState(false);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const mainScrollRef = useRef<any>(null);
+
+
 
   useEffect(() => {
     setEntries(literacyEntries);
@@ -115,17 +120,45 @@ export const LiteracyScreen: React.FC = () => {
     resetForm();
   }, [isEditing, selectedEntry, resetForm]);
 
-  // Auto-close add/detail mode and reset form when navigating away
+  // Auto-close add/detail mode and reset form/scroll when navigating away
   useFocusEffect(
     useCallback(() => {
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       return () => {
         setIsAdding(false);
         setSelectedEntry(null);
         setIsEditing(false);
         resetForm();
+        mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       };
     }, [resetForm])
   );
+
+  // Reset when user taps tab icon or navigation triggers reset
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('tabPress', () => {
+      setIsAdding(false);
+      setSelectedEntry(null);
+      setIsEditing(false);
+      setActiveTab('log');
+      resetForm();
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+    return unsubscribe;
+  }, [navigation, resetForm]);
+
+  useEffect(() => {
+    if (route.params?.resetKey) {
+      setIsAdding(false);
+      setSelectedEntry(null);
+      setIsEditing(false);
+      setActiveTab('log');
+      resetForm();
+      mainScrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [route.params?.resetKey, resetForm]);
+
+
 
   // Modal Sheet state for picker dropdowns
   const [dropdownModal, setDropdownModal] = useState<DropdownModalState | null>(null);
@@ -479,6 +512,7 @@ export const LiteracyScreen: React.FC = () => {
       )}
 
       <ScrollView
+        ref={mainScrollRef}
         style={styles.mainScroll}
         contentContainerStyle={styles.mainScrollContent}
         showsVerticalScrollIndicator={false}

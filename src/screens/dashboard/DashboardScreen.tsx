@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, RADIUS, SPACING, FONTS } from '../../constants/theme';
 import { DrawerParamList } from '../../types/navigation';
@@ -40,11 +40,37 @@ export const DashboardScreen: React.FC = () => {
     0
   );
 
+  const route = useRoute<any>();
+  const scrollRef = useRef<any>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      return () => {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('tabPress' as any, () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useEffect(() => {
+    if (route.params?.resetKey) {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [route.params?.resetKey]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <AppHeader showTitle={false} />
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp, useFocusEffect } from '@react-navigation/native';
@@ -26,15 +26,36 @@ export const AssignmentsScreen: React.FC = () => {
   const route = useRoute<RouteProp<BottomTabParamList, 'AssignmentsTab'>>();
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const scrollRef = useRef<any>(null);
 
-  // Auto-close assignment detail when navigating away to other bottom tabs
+  // Auto-close assignment detail and scroll to top when navigating away or focusing
   useFocusEffect(
     useCallback(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
       return () => {
         setSelectedAssignment(null);
+        setToastMessage(null);
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
       };
     }, [])
   );
+
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('tabPress', () => {
+      setSelectedAssignment(null);
+      setToastMessage(null);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useEffect(() => {
+    if ((route.params as any)?.resetKey) {
+      setSelectedAssignment(null);
+      setToastMessage(null);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [(route.params as any)?.resetKey]);
 
   useEffect(() => {
     if (route.params?.assignmentId) {
@@ -91,6 +112,7 @@ export const AssignmentsScreen: React.FC = () => {
         />
       ) : (
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}

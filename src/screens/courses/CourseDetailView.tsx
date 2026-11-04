@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -54,13 +54,19 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
   const [toDate, setToDate] = useState('');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [datePickerTarget, setDatePickerTarget] = useState<'from' | 'to'>('from');
+  const scrollRef = useRef<any>(null);
 
   // Reset any open session accordion and subviews when course changes or mounts
   useEffect(() => {
     setExpandedSessionId(null);
     setSelectedSession(null);
     setSelectedAssignment(null);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [course.id]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [activeTab]);
 
   const toggleStatus = (st: string) => {
     setSelectedStatuses((prev) =>
@@ -224,6 +230,7 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

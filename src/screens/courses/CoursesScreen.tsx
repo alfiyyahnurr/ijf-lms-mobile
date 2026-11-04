@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useStudentData } from '../../context/StudentDataContext';
 import { Course } from '../../types';
 import { FONTS, SHADOWS } from '../../constants/theme';
@@ -71,23 +71,36 @@ export const CoursesScreen: React.FC = () => {
   } = useStudentData();
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const scrollRef = useRef<any>(null);
 
-  // 1. Reset to main course list when user navigates away to any other screen
+  // 1. Reset to main course list and scroll to top when user navigates to this screen
   useFocusEffect(
     useCallback(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
       return () => {
         setSelectedCourse(null);
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
       };
     }, [])
   );
 
-  // 2. Also reset if user taps the Courses tab button in bottom nav while already on CourseDetail
+  // 2. Reset if user taps the Courses tab button in bottom nav
   useEffect(() => {
     const unsubscribe = navigation?.addListener?.('tabPress', () => {
       setSelectedCourse(null);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
     });
     return unsubscribe;
   }, [navigation]);
+
+  // 3. Reset when navigation params signal a reset
+  useEffect(() => {
+    if (route.params?.resetKey) {
+      setSelectedCourse(null);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [route.params?.resetKey]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -96,10 +109,14 @@ export const CoursesScreen: React.FC = () => {
       {selectedCourse ? (
         <CourseDetailView
           course={selectedCourse}
-          onBack={() => setSelectedCourse(null)}
+          onBack={() => {
+            setSelectedCourse(null);
+            scrollRef.current?.scrollTo({ y: 0, animated: false });
+          }}
         />
       ) : (
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}

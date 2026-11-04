@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import AppHeader from '../../components/navigation/AppHeader';
 import ToastAlert from '../../components/feedback/ToastAlert';
 import ErrorState from '../../components/feedback/ErrorState';
@@ -118,15 +118,40 @@ export const WeeklyPlanScreen: React.FC = () => {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [selectedSessionDetail, setSelectedSessionDetail] = useState<WeeklyPlanSession | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const scrollRef = useRef<any>(null);
 
-  // Auto-close open detail view when navigating away
+  // Auto-close open detail view and reset scroll to top when navigating
   useFocusEffect(
     useCallback(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
       return () => {
         setSelectedSessionDetail(null);
+        setToastMessage(null);
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
       };
     }, [])
   );
+
+  // Reset when tapping the Plan tab icon while already on Plan detail
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('tabPress', () => {
+      setSelectedSessionDetail(null);
+      setToastMessage(null);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  // Reset when navigation params signal a reset
+  useEffect(() => {
+    if (route.params?.resetKey) {
+      setSelectedSessionDetail(null);
+      setToastMessage(null);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [route.params?.resetKey]);
 
   // Term 1 Boundary
   const MIN_WEEK_OFFSET = -8;
@@ -224,6 +249,7 @@ export const WeeklyPlanScreen: React.FC = () => {
       />
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

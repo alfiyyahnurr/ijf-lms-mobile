@@ -1,18 +1,45 @@
-import React from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { useStudentData } from '../../context/StudentDataContext';
 import AppHeader from '../../components/navigation/AppHeader';
 import { FONTS, SHADOWS } from '../../constants/theme';
 
 export const ProfileScreen: React.FC = () => {
   const { studentProfile } = useStudentData();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const scrollRef = useRef<any>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      return () => {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('tabPress', () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useEffect(() => {
+    if (route.params?.resetKey) {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [route.params?.resetKey]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <AppHeader title="Profile" />
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

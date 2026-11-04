@@ -74,10 +74,23 @@ export const CustomBottomTabBar: React.FC<BottomTabBarProps> = ({
         const IconComponent = tab.Icon;
         const color = isFocused ? ACTIVE_COLOR : INACTIVE_COLOR;
 
+        const handlePress = () => {
+          const targetRoute = state.routes.find((r) => r.name === tab.screen);
+          if (targetRoute) {
+            navigation.emit({
+              type: 'tabPress',
+              target: targetRoute.key,
+              canPreventDefault: true,
+            });
+          }
+          // Navigate to the tab and pass reset params to return to default view
+          navigation.navigate(tab.screen, { resetKey: Date.now(), isDetail: false });
+        };
+
         return (
           <TouchableOpacity
             key={tab.label}
-            onPress={() => navigation.navigate(tab.screen)}
+            onPress={handlePress}
             style={styles.tabBtn}
             activeOpacity={0.7}
             accessibilityRole="button"

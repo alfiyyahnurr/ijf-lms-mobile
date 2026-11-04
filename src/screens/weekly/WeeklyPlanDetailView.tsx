@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,11 @@ export const WeeklyPlanDetailView: React.FC<WeeklyPlanDetailViewProps> = ({
   const [postDone, setPostDone] = useState<boolean>(Boolean(session.postDone));
   const [preQuestion, setPreQuestion] = useState<string>(session.preQuestion || '');
   const [postNote, setPostNote] = useState<string>(session.postNote || '');
+  const scrollRef = useRef<any>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [session.sessionId]);
 
   const handleTogglePreDone = () => {
     const nextVal = !preDone;
@@ -63,6 +68,7 @@ export const WeeklyPlanDetailView: React.FC<WeeklyPlanDetailViewProps> = ({
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

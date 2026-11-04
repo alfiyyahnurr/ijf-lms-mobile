@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { useStudentData } from '../../context/StudentDataContext';
 import AppHeader from '../../components/navigation/AppHeader';
 import ToastAlert from '../../components/feedback/ToastAlert';
@@ -11,6 +12,31 @@ export const ReportCardScreen: React.FC = () => {
   const { grades } = useStudentData();
   const [downloading, setDownloading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const scrollRef = useRef<any>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      return () => {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+      };
+    }, [])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('tabPress', () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  useEffect(() => {
+    if (route.params?.resetKey) {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [route.params?.resetKey]);
 
   const handleDownloadPdf = async () => {
     setDownloading(true);
@@ -38,6 +64,7 @@ export const ReportCardScreen: React.FC = () => {
       />
 
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
