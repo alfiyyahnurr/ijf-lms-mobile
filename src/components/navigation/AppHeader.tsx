@@ -1,13 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  TouchableWithoutFeedback,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useNavigation } from '@react-navigation/native';
-import { COLORS, RADIUS, SPACING, FONTS } from '../../constants/theme';
+import { COLORS, RADIUS, SPACING, FONTS, SHADOWS } from '../../constants/theme';
 import { DrawerParamList } from '../../types/navigation';
 import Card from '../common/Card';
 import ModalSheet from '../modals/ModalSheet';
 import { useNotifications } from '../../context/NotificationContext';
+import { useStudentData } from '../../context/StudentDataContext';
+import { useAuth } from '../../context/AuthContext';
 
 export interface AppHeaderProps {
   title?: string;
@@ -26,12 +35,26 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 }) => {
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
   const { unreadCount: globalUnread, markAllAsRead } = useNotifications();
+  const { studentProfile } = useStudentData();
+  const { logout } = useAuth();
+
   const [notifVisible, setNotifVisible] = useState(false);
+  const [userMenuVisible, setUserMenuVisible] = useState(false);
+  const [confirmLogoutVisible, setConfirmLogoutVisible] = useState(false);
 
   const effectiveUnread = unreadCount !== undefined ? unreadCount : globalUnread;
 
+  const initials = studentProfile?.fullName
+    ? studentProfile.fullName
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase()
+    : 'AN';
+
   const handleOpenNotifications = () => {
-    markAllAsRead(); // Syncs unread status globally across all screens
+    markAllAsRead();
     if (onPressNotifications) {
       onPressNotifications();
     } else {
@@ -39,18 +62,37 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     }
   };
 
+  const handleNavigateProfile = () => {
+    setUserMenuVisible(false);
+    (navigation as any).navigate('MainTabs', { screen: 'ProfileTab' });
+  };
+
+  const handleConfirmLogout = async () => {
+    setUserMenuVisible(false);
+    setConfirmLogoutVisible(false);
+    await logout();
+    const parentNav = navigation.getParent() as any;
+    if (parentNav?.navigate) {
+      parentNav.navigate('Login');
+    } else {
+      (navigation as any).navigate('Login');
+    }
+  };
+
   return (
     <>
       <View style={styles.header}>
         <View style={styles.left}>
+          {/* Menu / Hamburger Icon */}
           <TouchableOpacity
             onPress={() => navigation.openDrawer()}
             style={styles.iconBtn}
             accessibilityLabel="Open Navigation Drawer"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="menu" size={24} color="#1E293B" />
+            <Ionicons name="menu" size={24} color="#475569" />
           </TouchableOpacity>
+
           {showTitle && !!title && (
             <View style={styles.titleWrap}>
               <Text style={styles.title} numberOfLines={1}>
@@ -69,7 +111,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               accessibilityLabel="Notifications"
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="notifications-outline" size={21} color="#334155" />
+              <Ionicons name="notifications-outline" size={22} color="#475569" />
               {effectiveUnread > 0 && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{effectiveUnread}</Text>
@@ -78,21 +120,118 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </TouchableOpacity>
           )}
 
-          {/* Student Avatar Circle ("AN") */}
+          {/* Student Avatar Circle matching Web Topbar UserMenu */}
           <TouchableOpacity
-            onPress={() => (navigation as any).navigate('MainTabs', { screen: 'ProfileTab' })}
+            onPress={() => setUserMenuVisible(true)}
             style={styles.profileBtn}
-            accessibilityLabel="Student Profile"
+            accessibilityLabel="Student Profile Menu"
             activeOpacity={0.8}
           >
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>AN</Text>
+              <Text style={styles.avatarText}>{initials}</Text>
             </View>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Universal Notifications Modal (Works seamlessly across ALL screens) */}
+      {/* User Menu Dropdown Popover matching Web UserMenu (components/layout/user-menu.tsx) */}
+      <Modal
+        visible={userMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUserMenuVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setUserMenuVisible(false)}>
+          <View style={styles.popoverBackdrop}>
+            <TouchableWithoutFeedback>
+              <View style={styles.userMenuContainer}>
+                {/* User Info Header */}
+                <View style={styles.userMenuHeader}>
+                  <Text style={styles.userMenuName} numberOfLines={1}>
+                    {studentProfile?.fullName || 'Student'}
+                  </Text>
+                  <Text style={styles.userMenuEmail} numberOfLines={1}>
+                    {studentProfile?.email || 'student@learn.kreativaglobal.sch.id'}
+                  </Text>
+                </View>
+
+                {/* Profile Item */}
+                <TouchableOpacity
+                  style={styles.userMenuItem}
+                  onPress={handleNavigateProfile}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="person-outline" size={18} color="#475569" />
+                  <Text style={styles.userMenuItemText}>Profile</Text>
+                </TouchableOpacity>
+
+                {/* Sign Out Item */}
+                <TouchableOpacity
+                  style={[styles.userMenuItem, styles.userMenuLogoutItem]}
+                  onPress={() => {
+                    setUserMenuVisible(false);
+                    setConfirmLogoutVisible(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+                  <Text style={styles.userMenuLogoutText}>Sign Out</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Logout Confirmation Dialog matching Web LogoutConfirmDialog */}
+      <Modal
+        visible={confirmLogoutVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmLogoutVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setConfirmLogoutVisible(false)}>
+          <View style={styles.confirmModalBackdrop}>
+            <TouchableWithoutFeedback>
+              <View style={styles.confirmModalCard}>
+                <View style={styles.confirmModalHeader}>
+                  <Text style={styles.confirmModalTitle}>Sign Out</Text>
+                  <TouchableOpacity
+                    onPress={() => setConfirmLogoutVisible(false)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close" size={20} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.confirmModalDesc}>
+                  Are you sure you want to sign out of your account?
+                </Text>
+
+                <View style={styles.confirmModalActions}>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => setConfirmLogoutVisible(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.confirmSignOutBtn}
+                    onPress={handleConfirmLogout}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.confirmSignOutText}>Sign Out</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Universal Notifications Modal */}
       <ModalSheet
         visible={notifVisible}
         onClose={() => setNotifVisible(false)}
@@ -135,13 +274,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 const styles = StyleSheet.create({
   header: {
     height: 56,
-    backgroundColor: COLORS.bgSurface,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderSubtle,
+    borderBottomColor: '#E2E8F0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: 16,
   },
   left: {
     flexDirection: 'row',
@@ -149,46 +288,44 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconBtn: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: RADIUS.md,
+    borderRadius: 8,
   },
   titleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 4,
+    marginLeft: 8,
     flex: 1,
   },
   title: {
-    fontFamily: FONTS.title,
+    fontFamily: FONTS.titleSemiBold,
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.primary,
-    letterSpacing: -0.3,
+    color: '#0F172A',
   },
   right: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
   },
   badge: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    backgroundColor: COLORS.accentRed,
-    borderRadius: RADIUS.full,
+    top: 4,
+    right: 4,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
     minWidth: 16,
     height: 16,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: COLORS.bgSurface,
+    borderColor: '#FFFFFF',
   },
   badgeText: {
-    fontFamily: FONTS.bold,
     color: '#FFFFFF',
     fontSize: 9.5,
     fontWeight: '800',
@@ -199,12 +336,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    marginRight: 2,
   },
   profileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 4,
   },
   avatarCircle: {
     width: 34,
@@ -215,14 +350,134 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    fontFamily: FONTS.bold,
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
+
+  /* --- USER MENU POPOVER STYLES --- */
+  popoverBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
+  userMenuContainer: {
+    position: 'absolute',
+    top: 60,
+    right: 16,
+    width: 210,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 4,
+    ...SHADOWS.md,
+    elevation: 8,
+  },
+  userMenuHeader: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  userMenuName: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  userMenuEmail: {
+    fontSize: 11.5,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  userMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  userMenuItemText: {
+    fontSize: 13.5,
+    color: '#475569',
+    fontWeight: '500',
+  },
+  userMenuLogoutItem: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  userMenuLogoutText: {
+    fontSize: 13.5,
+    color: '#DC2626',
+    fontWeight: '500',
+  },
+
+  /* --- CONFIRM LOGOUT MODAL STYLES --- */
+  confirmModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  confirmModalCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    ...SHADOWS.lg,
+    elevation: 10,
+  },
+  confirmModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  confirmModalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  confirmModalDesc: {
+    fontSize: 13.5,
+    color: '#475569',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  confirmModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  cancelBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  cancelBtnText: {
+    fontSize: 13.5,
+    fontWeight: '500',
+    color: '#475569',
+  },
+  confirmSignOutBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 8,
+    backgroundColor: '#DC2626',
+  },
+  confirmSignOutText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+
   /* --- NOTIFICATIONS MODAL STYLES --- */
   notifCardPrimary: {
-    backgroundColor: COLORS.accentBlueLight,
+    backgroundColor: '#EFF6FF',
     borderColor: '#BFDBFE',
     marginBottom: SPACING.sm,
   },
@@ -250,40 +505,38 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   notifTitleStandard: {
-    fontFamily: FONTS.bold,
+    fontFamily: FONTS.titleSemiBold,
     fontSize: 13.5,
-    fontWeight: '700',
-    color: COLORS.textMain,
+    color: '#0F172A',
   },
   notifDescStandard: {
     fontFamily: FONTS.regular,
     fontSize: 12.5,
-    color: COLORS.textMuted,
+    color: '#64748B',
     marginTop: 3,
     lineHeight: 18,
   },
   notifDateStandard: {
-    fontFamily: FONTS.medium,
+    fontFamily: FONTS.regular,
     fontSize: 11,
-    color: COLORS.textLight,
+    color: '#94A3B8',
     marginTop: 6,
-    fontWeight: '500',
   },
   viewAllAnnouncementsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
-    backgroundColor: COLORS.primaryLight,
-    borderRadius: RADIUS.md,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
     marginTop: 4,
   },
   viewAllAnnouncementsText: {
-    fontFamily: FONTS.bold,
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.primary,
+    fontFamily: FONTS.medium,
+    fontSize: 13.5,
+    color: '#2563EB',
+    fontWeight: '600',
   },
 });
 

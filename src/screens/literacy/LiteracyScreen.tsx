@@ -9,6 +9,8 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Platform,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -77,9 +79,29 @@ export const LiteracyScreen: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [deleteToastVisible, setDeleteToastVisible] = useState(false);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const mainScrollRef = useRef<any>(null);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      if (e?.endCoordinates?.height) {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
 
 
@@ -100,6 +122,42 @@ export const LiteracyScreen: React.FC = () => {
 
   // Form State (Default: Completely Empty)
   const [formData, setFormData] = useState<LiteracyFormData>({ ...DEFAULT_EMPTY_FORM });
+
+  // Refs for every TextInput so we can accurately measure and auto-scroll
+  const titleInputRef = useRef<any>(null);
+  const authorInputRef = useRef<any>(null);
+  const pagesInputRef = useRef<any>(null);
+  const vocabInputRef = useRef<any>(null);
+  const claimInputRef = useRef<any>(null);
+  const evidenceInputRef = useRef<any>(null);
+  const soWhatInputRef = useRef<any>(null);
+  const connectionInputRef = useRef<any>(null);
+
+  // Layout refs to accurately compute exact positions across form cards
+  const card1Y = useRef<number>(40);
+  const card2Y = useRef<number>(550);
+  const claimContainerY = useRef<number>(60);
+  const evidenceContainerY = useRef<number>(420);
+  const soWhatContainerY = useRef<number>(780);
+  const connectionCardY = useRef<number>(1780);
+
+  // Smooth auto-scroll helper so active input is comfortably positioned above keyboard
+  const scrollToField = useCallback((yOffset: number) => {
+    setTimeout(() => {
+      mainScrollRef.current?.scrollTo({
+        y: Math.max(0, yOffset),
+        animated: true,
+      });
+    }, 120);
+  }, []);
+
+  const scrollToFocusedInput = useCallback((_inputRef: any, fallbackY: number) => {
+    scrollToField(fallbackY);
+  }, [scrollToField]);
+
+  const scrollToInput = useCallback((yOffset: number) => {
+    scrollToField(yOffset);
+  }, [scrollToField]);
 
   // Reset form to completely empty state
   const resetForm = useCallback(() => {
@@ -511,12 +569,22 @@ export const LiteracyScreen: React.FC = () => {
         </View>
       )}
 
-      <ScrollView
-        ref={mainScrollRef}
-        style={styles.mainScroll}
-        contentContainerStyle={styles.mainScrollContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
       >
+        <ScrollView
+          ref={mainScrollRef}
+          style={styles.mainScroll}
+          contentContainerStyle={[
+            styles.mainScrollContent,
+            { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 60 : 60 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
         {/* ================================================================
             TAB 1: LOG VIEW
             ================================================================ */}
@@ -700,18 +768,25 @@ export const LiteracyScreen: React.FC = () => {
                 </TouchableOpacity>
 
                 {/* CARD 1: WHAT I READ */}
-                <View style={styles.formCard}>
+                <View
+                  style={styles.formCard}
+                  onLayout={(e) => {
+                    card1Y.current = e.nativeEvent.layout.y;
+                  }}
+                >
                   <Text style={styles.cardSectionTitle}>What I Read</Text>
 
                   {/* TITLE */}
                   <View style={styles.formGroup}>
                     <Text style={styles.fieldLabel}>TITLE</Text>
                     <TextInput
+                      ref={titleInputRef}
                       style={styles.textInput}
                       placeholder="Title of book, article, essay..."
                       placeholderTextColor="#94A3B8"
                       value={formData.title}
                       onChangeText={(val) => updateFormField('title', val)}
+                      onFocus={() => scrollToField(0)}
                     />
                   </View>
 
@@ -719,11 +794,13 @@ export const LiteracyScreen: React.FC = () => {
                   <View style={styles.formGroup}>
                     <Text style={styles.fieldLabel}>AUTHOR / SOURCE</Text>
                     <TextInput
+                      ref={authorInputRef}
                       style={styles.textInput}
                       placeholder="Author name or publication..."
                       placeholderTextColor="#94A3B8"
                       value={formData.author}
                       onChangeText={(val) => updateFormField('author', val)}
+                      onFocus={() => scrollToField(60)}
                     />
                   </View>
 
@@ -816,11 +893,13 @@ export const LiteracyScreen: React.FC = () => {
                     <View style={styles.gridCol}>
                       <Text style={styles.fieldLabel}>PAGES / LENGTH</Text>
                       <TextInput
+                        ref={pagesInputRef}
                         style={styles.textInput}
                         placeholder="e.g. 280 pages"
                         placeholderTextColor="#94A3B8"
                         value={formData.pagesOrLength}
                         onChangeText={(val) => updateFormField('pagesOrLength', val)}
+                        onFocus={() => scrollToField(200)}
                       />
                     </View>
                   </View>
@@ -878,22 +957,34 @@ export const LiteracyScreen: React.FC = () => {
                   <View style={styles.formGroup}>
                     <Text style={styles.fieldLabel}>NEW VOCABULARY / KEY TERMS (OPTIONAL)</Text>
                     <TextInput
+                      ref={vocabInputRef}
                       style={styles.textInput}
                       placeholder="e.g. resilience, dialectical..."
                       placeholderTextColor="#94A3B8"
                       value={formData.vocabulary}
                       onChangeText={(val) => updateFormField('vocabulary', val)}
+                      onFocus={() => scrollToField(360)}
                     />
                   </View>
                 </View>
 
                 {/* CARD 2: MY REFLECTION (3-TIER FRAMEWORK) */}
-                <View style={styles.formCard}>
+                <View
+                  style={styles.formCard}
+                  onLayout={(e) => {
+                    card2Y.current = e.nativeEvent.layout.y;
+                  }}
+                >
                   <Text style={styles.cardSectionTitleReflection}>My Reflection</Text>
                   <Text style={styles.cardSubtitle}>Claim → Evidence → So what?</Text>
 
                   {/* STEP 1: CLAIM (ICE TEAL / CYAN CONTAINER) */}
-                  <View style={styles.claimContainer}>
+                  <View
+                    style={styles.claimContainer}
+                    onLayout={(e) => {
+                      claimContainerY.current = e.nativeEvent.layout.y;
+                    }}
+                  >
                     <View style={styles.stepHeaderRow}>
                       <View style={styles.claimBadge}>
                         <Text style={styles.badgeLetter}>C</Text>
@@ -944,6 +1035,7 @@ export const LiteracyScreen: React.FC = () => {
                     {/* Dynamic Textarea for Claim */}
                     {hasClaimPrompt && (
                       <TextInput
+                        ref={claimInputRef}
                         style={styles.reflectionTextarea}
                         placeholder="Write your claim here..."
                         placeholderTextColor="#94A3B8"
@@ -952,13 +1044,23 @@ export const LiteracyScreen: React.FC = () => {
                         multiline
                         numberOfLines={4}
                         textAlignVertical="top"
+                        onFocus={() => {
+                          scrollToField(
+                            (card2Y.current || 550) + (claimContainerY.current || 60) + 100
+                          );
+                        }}
                       />
                     )}
                   </View>
 
                   {/* STEP 2: EVIDENCE (WARM GOLD / AMBER CONTAINER) - Appears after Claim is completed */}
                   {canShowEvidence && (
-                    <View style={styles.evidenceContainer}>
+                    <View
+                      style={styles.evidenceContainer}
+                      onLayout={(e) => {
+                        evidenceContainerY.current = e.nativeEvent.layout.y;
+                      }}
+                    >
                       <View style={styles.stepHeaderRow}>
                         <View style={styles.evidenceBadge}>
                           <Text style={styles.badgeLetter}>E</Text>
@@ -1009,6 +1111,7 @@ export const LiteracyScreen: React.FC = () => {
                       {/* Dynamic Textarea for Evidence */}
                       {hasEvidencePrompt && (
                         <TextInput
+                          ref={evidenceInputRef}
                           style={styles.reflectionTextarea}
                           placeholder="Cite or describe the specific evidence..."
                           placeholderTextColor="#94A3B8"
@@ -1017,6 +1120,11 @@ export const LiteracyScreen: React.FC = () => {
                           multiline
                           numberOfLines={4}
                           textAlignVertical="top"
+                          onFocus={() => {
+                            scrollToField(
+                              (card2Y.current || 550) + (evidenceContainerY.current || 420) + 100
+                            );
+                          }}
                         />
                       )}
                     </View>
@@ -1024,7 +1132,12 @@ export const LiteracyScreen: React.FC = () => {
 
                   {/* STEP 3: SO WHAT? (SAGE MINT GREEN CONTAINER) - Appears after Evidence is completed */}
                   {canShowSoWhat && (
-                    <View style={styles.soWhatContainer}>
+                    <View
+                      style={styles.soWhatContainer}
+                      onLayout={(e) => {
+                        soWhatContainerY.current = e.nativeEvent.layout.y;
+                      }}
+                    >
                       <View style={styles.stepHeaderRow}>
                         <View style={styles.soWhatBadge}>
                           <Text style={styles.badgeLetter}>S</Text>
@@ -1075,6 +1188,7 @@ export const LiteracyScreen: React.FC = () => {
                       {/* Dynamic Textarea for So What? */}
                       {hasSoWhatPrompt && (
                         <TextInput
+                          ref={soWhatInputRef}
                           style={styles.reflectionTextarea}
                           placeholder="So what? Why does this matter?"
                           placeholderTextColor="#94A3B8"
@@ -1083,6 +1197,11 @@ export const LiteracyScreen: React.FC = () => {
                           multiline
                           numberOfLines={4}
                           textAlignVertical="top"
+                          onFocus={() => {
+                            scrollToField(
+                              (card2Y.current || 550) + (soWhatContainerY.current || 780) + 100
+                            );
+                          }}
                         />
                       )}
                     </View>
@@ -1091,9 +1210,15 @@ export const LiteracyScreen: React.FC = () => {
 
                 {/* CARD 3: CONNECTION TO THE REAL WORLD (OPTIONAL) - Appears after So What? is completed */}
                 {canShowConnection && (
-                  <View style={styles.formCard}>
+                  <View
+                    style={styles.formCard}
+                    onLayout={(e) => {
+                      connectionCardY.current = e.nativeEvent.layout.y;
+                    }}
+                  >
                     <Text style={styles.fieldLabel}>CONNECTION TO THE REAL WORLD (OPTIONAL)</Text>
                     <TextInput
+                      ref={connectionInputRef}
                       style={styles.reflectionTextarea}
                       placeholder="Does this connect to a current event, another book, or a global issue?"
                       placeholderTextColor="#94A3B8"
@@ -1102,6 +1227,9 @@ export const LiteracyScreen: React.FC = () => {
                       multiline
                       numberOfLines={4}
                       textAlignVertical="top"
+                      onFocus={() => {
+                        scrollToField(Math.max(0, (connectionCardY.current || 1780) - 20));
+                      }}
                     />
                   </View>
                 )}
@@ -1237,6 +1365,7 @@ export const LiteracyScreen: React.FC = () => {
           </View>
         )}
       </ScrollView>
+    </KeyboardAvoidingView>
 
       {/* ================================================================
           CONFIRMATION DIALOG FOR DELETE ENTRY

@@ -6,6 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  Platform,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, RADIUS, SPACING, SHADOWS, FONTS } from '../../constants/theme';
@@ -54,7 +57,27 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
   const [toDate, setToDate] = useState('');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [datePickerTarget, setDatePickerTarget] = useState<'from' | 'to'>('from');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollRef = useRef<any>(null);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      if (e?.endCoordinates?.height) {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Reset any open session accordion and subviews when course changes or mounts
   useEffect(() => {
@@ -228,12 +251,21 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 68 : 0}
+    >
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 60 : 40 },
+        ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* 1. Back Button matching Screenshot: "← Back to Courses" */}
         <TouchableOpacity
@@ -701,7 +733,7 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
           }
         }}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

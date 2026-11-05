@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, StyleProp, ViewStyle, TextStyle } from 'react-native';
 import { COLORS, RADIUS, FONTS } from '../../constants/theme';
 
+export type BadgeColor = 'blue' | 'green' | 'orange' | 'purple' | 'teal' | 'gray' | 'red';
+
 export type BadgeVariant =
   | 'code'
   | 'active'
@@ -20,76 +22,91 @@ export type BadgeVariant =
   | 'default';
 
 export interface BadgeProps {
-  label: string;
+  label?: string;
+  children?: React.ReactNode;
   variant?: BadgeVariant;
+  color?: BadgeColor;
   size?: 'sm' | 'md' | 'lg';
   style?: StyleProp<ViewStyle>;
 }
 
 export const Badge: React.FC<BadgeProps> = ({
   label,
+  children,
   variant = 'default',
+  color,
   size = 'md',
   style,
 }) => {
   const getBadgeStyle = () => {
+    if (color) {
+      switch (color) {
+        case 'blue':
+          return { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE' };
+        case 'green':
+          return { bg: '#DCFCE7', text: '#15803D', border: '#86EFAC' };
+        case 'orange':
+          return { bg: '#FFEDD5', text: '#C2410C', border: '#FDBA74' };
+        case 'purple':
+          return { bg: '#F3E8FF', text: '#7E22CE', border: '#D8B4FE' };
+        case 'teal':
+          return { bg: '#CCFBF1', text: '#0F766E', border: '#5EEAD4' };
+        case 'red':
+          return { bg: '#FEF2F2', text: '#DC2626', border: '#FECACA' };
+        case 'gray':
+        default:
+          return { bg: '#F1F5F9', text: '#475569', border: '#CBD5E1' };
+      }
+    }
+
     switch (variant) {
       case 'code':
-        return { bg: COLORS.accentBlueLight, text: COLORS.accentBlue };
+        return { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE' };
       case 'active':
       case 'success':
-        return { bg: COLORS.accentGreenLight, text: COLORS.accentGreen };
+        return { bg: '#DCFCE7', text: '#15803D', border: '#86EFAC' };
       case 'pending':
       case 'warning':
-        return { bg: COLORS.accentAmberLight, text: COLORS.accentAmber };
+        return { bg: '#FFEDD5', text: '#C2410C', border: '#FDBA74' };
       case 'notstarted':
-        return { bg: '#F1F5F9', text: COLORS.textMuted };
+        return { bg: '#F1F5F9', text: '#475569', border: '#CBD5E1' };
       case 'new':
       case 'info':
-        return { bg: '#E0F2FE', text: '#0369A1' };
+        return { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE' };
       case 'unread':
-        return { bg: '#FFEDD5', text: '#C2410C' };
+        return { bg: '#FFEDD5', text: '#C2410C', border: '#FDBA74' };
       case 'discipline':
       case 'purple':
       case 'primary':
-        return { bg: '#F3E8FF', text: '#7E22CE' };
+        return { bg: '#F3E8FF', text: '#7E22CE', border: '#D8B4FE' };
       case 'literacy':
-        return { bg: '#E0F2FE', text: '#0369A1' };
+        return { bg: '#CCFBF1', text: '#0F766E', border: '#5EEAD4' };
       case 'habits':
-        return { bg: '#DCFCE7', text: '#15803D' };
+        return { bg: '#DCFCE7', text: '#15803D', border: '#86EFAC' };
       default:
-        return { bg: COLORS.bgSubtle, text: COLORS.textMain };
+        return { bg: '#F1F5F9', text: '#475569', border: '#CBD5E1' };
     }
   };
 
-  const current = getBadgeStyle();
-
-  const getSizeStyle = (): { badge: ViewStyle; text: TextStyle } => {
-    switch (size) {
-      case 'sm':
-        return {
-          badge: { paddingHorizontal: 6, paddingVertical: 2 },
-          text: { fontSize: 10 },
-        };
-      case 'lg':
-        return {
-          badge: { paddingHorizontal: 10, paddingVertical: 4 },
-          text: { fontSize: 12 },
-        };
-      case 'md':
-      default:
-        return {
-          badge: { paddingHorizontal: 8, paddingVertical: 3 },
-          text: { fontSize: 11 },
-        };
-    }
-  };
-
-  const sz = getSizeStyle();
+  const badgeStyle = getBadgeStyle();
+  const textContent = label !== undefined ? label : children;
 
   return (
-    <View style={[styles.badge, sz.badge, { backgroundColor: current.bg }, style]}>
-      <Text style={[styles.text, sz.text, { color: current.text }]}>{label}</Text>
+    <View
+      style={[
+        styles.badge,
+        styles[size],
+        {
+          backgroundColor: badgeStyle.bg,
+          borderColor: badgeStyle.border,
+          borderWidth: 1,
+        },
+        style,
+      ]}
+    >
+      <Text style={[styles.text, styles[`text_${size}`], { color: badgeStyle.text }]}>
+        {textContent}
+      </Text>
     </View>
   );
 };
@@ -99,10 +116,31 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     alignSelf: 'flex-start',
   },
+  sm: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  md: {
+    paddingHorizontal: 10,
+    paddingVertical: 3.5,
+  },
+  lg: {
+    paddingHorizontal: 12,
+    paddingVertical: 4.5,
+  },
   text: {
     fontFamily: FONTS.bold,
     fontWeight: '700',
     letterSpacing: 0.2,
+  },
+  text_sm: {
+    fontSize: 10,
+  },
+  text_md: {
+    fontSize: 11.5,
+  },
+  text_lg: {
+    fontSize: 13,
   },
 });
 

@@ -6,13 +6,17 @@ export interface CardProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   accentBorder?: 'blue' | 'green' | 'purple' | 'none';
+  accentColor?: 'blue' | 'green' | 'purple' | 'orange' | 'teal' | 'none';
 }
 
-export const Card: React.FC<CardProps> = ({ children, style, accentBorder = 'none' }) => {
+export const Card: React.FC<CardProps> = ({ children, style, accentBorder = 'none', accentColor }) => {
+  const effectiveAccent = accentColor || accentBorder;
   const getBorderColor = () => {
-    if (accentBorder === 'blue') return COLORS.accentBlue;
-    if (accentBorder === 'green') return COLORS.accentTeal;
-    if (accentBorder === 'purple') return COLORS.primary;
+    if (effectiveAccent === 'blue') return COLORS.accentBlue;
+    if (effectiveAccent === 'green') return '#16A34A';
+    if (effectiveAccent === 'teal') return '#0D9488';
+    if (effectiveAccent === 'orange') return '#EA580C';
+    if (effectiveAccent === 'purple') return '#7C3AED';
     return 'transparent';
   };
 
@@ -20,7 +24,7 @@ export const Card: React.FC<CardProps> = ({ children, style, accentBorder = 'non
     <View
       style={[
         styles.card,
-        accentBorder !== 'none' && {
+        effectiveAccent !== 'none' && {
           borderLeftWidth: 4,
           borderLeftColor: getBorderColor(),
         },

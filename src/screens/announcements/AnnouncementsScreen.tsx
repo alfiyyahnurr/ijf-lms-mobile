@@ -75,7 +75,13 @@ export const AnnouncementsScreen: React.FC = () => {
           />
         ) : (
           announcements.map((item) => (
-            <View key={item.id} style={styles.card}>
+            <View
+              key={item.id}
+              style={[
+                styles.card,
+                item.read && { borderLeftWidth: 1, borderLeftColor: '#E2E8F0' },
+              ]}
+            >
               {/* Top Row: Title + "New" badge */}
               <View style={styles.titleRow}>
                 <Text style={styles.cardTitle}>{item.title}</Text>

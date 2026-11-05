@@ -8,6 +8,9 @@ import {
   TextInput,
   ActivityIndicator,
   Platform,
+  KeyboardAvoidingView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, RADIUS, SPACING, SHADOWS, FONTS } from '../../constants/theme';
@@ -34,7 +37,28 @@ export const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({
   const [submissionNote, setSubmissionNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successToast, setSuccessToast] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollRef = useRef<any>(null);
+  const submissionCardY = useRef<number>(240);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      if (e?.endCoordinates?.height) {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -92,7 +116,11 @@ export const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 68 : 0}
+    >
       {/* Success Toast Indicator if submitted in standalone mode */}
       {!onSubmitSuccess && (
         <ToastAlert
@@ -108,8 +136,13 @@ export const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 60 : 80 },
+        ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* Back Button matching Gambar 1: "← Back to Course" */}
         <TouchableOpacity
@@ -176,7 +209,12 @@ export const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({
             )}
           </View>
         ) : (
-          <View style={styles.card}>
+          <View
+            style={styles.card}
+            onLayout={(e) => {
+              submissionCardY.current = e.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.cardHeaderTitle}>Submission</Text>
             <View style={styles.uploadForm}>
               <Text style={styles.uploadPrompt}>Attach Solution Document</Text>
@@ -223,6 +261,14 @@ export const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
+                onFocus={() => {
+                  setTimeout(() => {
+                    scrollRef.current?.scrollTo({
+                      y: Math.max(0, submissionCardY.current - 16),
+                      animated: true,
+                    });
+                  }, 120);
+                }}
               />
 
               <View style={styles.actionRow}>
@@ -271,7 +317,7 @@ export const AssignmentDetailView: React.FC<AssignmentDetailViewProps> = ({
           </View>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

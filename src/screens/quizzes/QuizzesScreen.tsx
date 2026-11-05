@@ -1,13 +1,17 @@
-import React, { useRef, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useStudentData } from '../../context/StudentDataContext';
 import { FONTS, SHADOWS } from '../../constants/theme';
+import { Quiz } from '../../types';
+import Badge from '../../components/common/Badge';
 import AppHeader from '../../components/navigation/AppHeader';
 import EmptyState from '../../components/feedback/EmptyState';
 import ErrorState from '../../components/feedback/ErrorState';
 import CardSkeleton from '../../components/feedback/CardSkeleton';
+import QuizTakingScreen from './QuizTakingScreen';
 
 export const QuizzesScreen: React.FC = () => {
   const {
@@ -20,12 +24,14 @@ export const QuizzesScreen: React.FC = () => {
   } = useStudentData();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
+  const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(null);
   const scrollRef = useRef<any>(null);
 
   useFocusEffect(
     useCallback(() => {
       scrollRef.current?.scrollTo({ y: 0, animated: false });
       return () => {
+        setActiveQuiz(null);
         scrollRef.current?.scrollTo({ y: 0, animated: false });
       };
     }, [])
@@ -33,6 +39,7 @@ export const QuizzesScreen: React.FC = () => {
 
   useEffect(() => {
     const unsubscribe = navigation?.addListener?.('tabPress', () => {
+      setActiveQuiz(null);
       scrollRef.current?.scrollTo({ y: 0, animated: false });
     });
     return unsubscribe;
@@ -40,9 +47,19 @@ export const QuizzesScreen: React.FC = () => {
 
   useEffect(() => {
     if (route.params?.resetKey) {
+      setActiveQuiz(null);
       scrollRef.current?.scrollTo({ y: 0, animated: false });
     }
   }, [route.params?.resetKey]);
+
+  if (activeQuiz) {
+    return (
+      <QuizTakingScreen
+        quiz={activeQuiz}
+        onBack={() => setActiveQuiz(null)}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -52,6 +69,8 @@ export const QuizzesScreen: React.FC = () => {
         ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -86,27 +105,42 @@ export const QuizzesScreen: React.FC = () => {
             onAction={refreshAllData}
           />
         ) : (
-          /* Pure Card List */
+          /* Pure Card List matching Web quizzes-list-client */
           <View style={styles.cardList}>
             {quizzes.map((quiz) => (
-              <View key={quiz.id} style={styles.quizCard}>
-                {/* Title */}
-                <Text style={styles.quizTitle} numberOfLines={2}>
-                  {quiz.title}
-                </Text>
-
-                {/* Subtitle */}
-                <Text style={styles.quizSubtitle} numberOfLines={2}>
-                  {quiz.course} • ? min • {quiz.questions} questions
-                </Text>
-
-                {/* Status pill located UNDER subtitle */}
-                <View style={styles.statusPillRow}>
-                  <View style={styles.statusPill}>
-                    <Text style={styles.statusPillText}>not started</Text>
+              <TouchableOpacity
+                key={quiz.id}
+                style={styles.quizCard}
+                onPress={() => setActiveQuiz(quiz)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.quizCardInner}>
+                  <View style={styles.quizCardMain}>
+                    <Text style={styles.quizTitle} numberOfLines={2}>
+                      {quiz.title}
+                    </Text>
+                    <Text style={styles.quizSubtitle} numberOfLines={2}>
+                      {quiz.course} • {quiz.duration || '? min'} • {quiz.questions} questions
+                    </Text>
+                  </View>
+                  <View style={styles.quizCardRight}>
+                    {quiz.score && quiz.score !== '—' && (
+                      <Text style={styles.quizScoreText}>{quiz.score}</Text>
+                    )}
+                    <Badge
+                      color={
+                        quiz.status === 'completed'
+                          ? 'green'
+                          : quiz.status === 'in progress'
+                          ? 'blue'
+                          : 'gray'
+                      }
+                    >
+                      {quiz.status || 'not started'}
+                    </Badge>
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
@@ -153,36 +187,41 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 18,
+    padding: 16,
     ...SHADOWS.sm,
   },
-  quizTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-    lineHeight: 21,
-    marginBottom: 6,
-  },
-  quizSubtitle: {
-    fontSize: 12.5,
-    color: '#64748B',
-    lineHeight: 18,
-    marginBottom: 10,
-  },
-  statusPillRow: {
+  quizCardInner: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  statusPill: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 12,
-    paddingVertical: 3,
-    borderRadius: 999,
+  quizCardMain: {
+    flex: 1,
   },
-  statusPillText: {
-    fontSize: 12,
+  quizTitle: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 14.5,
     fontWeight: '600',
+    color: '#0F172A',
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  quizSubtitle: {
+    fontFamily: FONTS.regular,
+    fontSize: 12.5,
     color: '#475569',
+    lineHeight: 18,
+  },
+  quizCardRight: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  quizScoreText: {
+    fontFamily: FONTS.bold,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#16A34A',
   },
 });
 

@@ -34,6 +34,7 @@ import {
   getCourseSessionDetail,
   getWeeklyPlanForWeek,
 } from '../data/mockData';
+import { api } from '../services/api';
 
 // Helper to format consistent date key: YYYY-MM-DD
 export const formatDateKey = (year: number, month: number, day: number): string => {
@@ -123,6 +124,7 @@ const INITIAL_POINTS_HISTORY: PointHistoryItem[] = [
 interface StudentDataContextType {
   // Profile & Points
   studentProfile: StudentProfile;
+  setStudentProfile: (profile: StudentProfile | ((prev: StudentProfile) => StudentProfile)) => void;
   pointsHistory: PointHistoryItem[];
   addHabitPoints: (dateKey: string) => void;
   revokeHabitPoints: (dateKey: string) => void;
@@ -426,6 +428,7 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const toggleHabit = (dateKey: string, groupId: string, itemId: string) => {
     let shouldAdd = false;
     let shouldRevoke = false;
+    let targetChecked = true;
 
     setHabitsByDate((prev) => {
       const existing =
@@ -441,6 +444,7 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
           ...g,
           items: g.items.map((i) => {
             if (i.id !== itemId) return i;
+            targetChecked = !i.checked;
             return { ...i, checked: !i.checked };
           }),
         };
@@ -462,6 +466,9 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         [dateKey]: updated,
       };
     });
+
+    // Synchronize to backend database asynchronously
+    api.habits.toggleHabit(dateKey, groupId, itemId, targetChecked).catch(() => {});
 
     if (shouldAdd) {
       addHabitPoints(dateKey);
@@ -522,6 +529,9 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       ...prev,
     ]);
     showToast('+3 pts · Reading log', 3);
+
+    // Synchronize to backend database asynchronously
+    api.literacy.create(entry).catch(() => {});
   };
 
   const updateLiteracyEntry = (id: string | number, updated: Partial<LiteracyEntry>) => {
@@ -535,6 +545,8 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         )
       );
     }
+    // Synchronize to backend database asynchronously
+    api.literacy.update(id, updated).catch(() => {});
   };
 
   const deleteLiteracyEntry = (id: string | number) => {
@@ -545,6 +557,9 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       literacyPts: Math.max(0, prev.literacyPts - 3),
       points: Math.max(0, prev.points - 3),
     }));
+
+    // Synchronize to backend database asynchronously
+    api.literacy.delete(id).catch(() => {});
 
     // Update Class Full Leaderboard
     setClassLeaderboard((prev) => {
@@ -593,6 +608,7 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     <StudentDataContext.Provider
       value={{
         studentProfile,
+        setStudentProfile,
         pointsHistory,
         addHabitPoints,
         revokeHabitPoints,

@@ -11,6 +11,7 @@ import { useStudentData } from '../../context/StudentDataContext';
 import AppHeader from '../../components/navigation/AppHeader';
 import Card from '../../components/common/Card';
 import StatCard from '../../components/common/StatCard';
+import Badge from '../../components/common/Badge';
 import ErrorState from '../../components/feedback/ErrorState';
 
 export const DashboardScreen: React.FC = () => {
@@ -21,11 +22,18 @@ export const DashboardScreen: React.FC = () => {
     assignments,
     exams,
     announcements,
+    grades,
     isRefreshing,
     isError,
     errorMessage,
     refreshAllData,
   } = useStudentData();
+
+  const upcomingSessions = [
+    { id: 1, title: 'W8 · Chemistry · Stoichiometry', courseName: 'Chemistry IGCSE — S4 A 2026/2027', status: 'scheduled' },
+    { id: 2, title: 'W8 · Mathematics · Quadratic Equations', courseName: 'Mathematics IGCSE — S4 A 2026/2027', status: 'scheduled' },
+    { id: 3, title: 'W8 · Physics · Kinematics Lab', courseName: 'Physics IGCSE — S4 A 2026/2027', status: 'scheduled' },
+  ];
 
   const pendingAssignmentsCount = assignments.filter(
     (assignment) => assignment.status === 'pending'
@@ -144,15 +152,9 @@ export const DashboardScreen: React.FC = () => {
           <Text style={styles.pointsValue}>{studentProfile.points}</Text>
 
           <View style={styles.badgeRow}>
-            <View style={styles.pillDiscipline}>
-              <Text style={styles.pillDisciplineText}>Discipline {studentProfile.disciplinePts}</Text>
-            </View>
-            <View style={styles.pillLiteracy}>
-              <Text style={styles.pillLiteracyText}>Literacy {studentProfile.literacyPts}</Text>
-            </View>
-            <View style={styles.pillHabits}>
-              <Text style={styles.pillHabitsText}>Habits {studentProfile.habitsPts}</Text>
-            </View>
+            <Badge color="purple">Discipline {studentProfile.disciplinePts}</Badge>
+            <Badge color="teal">Literacy {studentProfile.literacyPts}</Badge>
+            <Badge color="green">Habits {studentProfile.habitsPts}</Badge>
           </View>
         </Card>
 
@@ -172,10 +174,28 @@ export const DashboardScreen: React.FC = () => {
           <Text style={styles.houseDesc}>No house ranking yet</Text>
         </Card>
 
-        {/* Upcoming Sessions Card matching Screenshot 105530 */}
+        {/* Upcoming Sessions Card matching Web */}
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Upcoming Sessions</Text>
-          <Text style={styles.emptyNotice}>No upcoming sessions.</Text>
+          {upcomingSessions.length === 0 ? (
+            <Text style={styles.emptyNotice}>No upcoming sessions.</Text>
+          ) : (
+            <View style={styles.subList}>
+              {upcomingSessions.map((s) => (
+                <View key={s.id} style={styles.subCardItem}>
+                  <View style={styles.subCardContent}>
+                    <Text style={styles.subCardTitle} numberOfLines={1}>
+                      {s.title}
+                    </Text>
+                    <Text style={styles.subCardSub} numberOfLines={1}>
+                      {s.courseName}
+                    </Text>
+                  </View>
+                  <Badge color="blue">{s.status}</Badge>
+                </View>
+              ))}
+            </View>
+          )}
         </Card>
 
         {/* Pending Assignments Card matching Screenshot 105543 */}
@@ -226,10 +246,26 @@ export const DashboardScreen: React.FC = () => {
           )}
         </Card>
 
-        {/* Recent Scores Card matching Screenshot 105557 */}
+        {/* Recent Scores Card matching Web */}
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Recent Scores</Text>
-          <Text style={styles.emptyNotice}>No scores yet.</Text>
+          {grades.length === 0 ? (
+            <Text style={styles.emptyNotice}>No scores yet.</Text>
+          ) : (
+            <View style={styles.subList}>
+              {grades.slice(0, 3).map((s, idx) => (
+                <View key={s.id || idx} style={styles.subCardItem}>
+                  <View style={styles.subCardContent}>
+                    <Text style={styles.subCardTitle} numberOfLines={1}>
+                      {s.subject}
+                    </Text>
+                    <Text style={styles.subCardSub}>Term 1 Assessment</Text>
+                  </View>
+                  <Text style={styles.scoreGreenText}>{s.score}/100</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </Card>
 
         {/* Announcements Card matching Screenshot 105557 */}
@@ -478,6 +514,12 @@ const styles = StyleSheet.create({
   viewAllRow: {
     marginTop: 2,
     alignSelf: 'flex-start',
+  },
+  scoreGreenText: {
+    fontFamily: FONTS.bold,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#16A34A',
   },
 });
 

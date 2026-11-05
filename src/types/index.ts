@@ -38,6 +38,22 @@ export interface Assignment {
   status: 'pending' | 'submitted' | 'graded';
 }
 
+export interface QuizOption {
+  id: number;
+  optionLabel: string;
+  optionText: string;
+  isCorrect?: boolean;
+}
+
+export interface QuizQuestion {
+  id: number;
+  question_type: string;
+  question_text: string;
+  points: number;
+  options: QuizOption[];
+  explanation?: string | null;
+}
+
 export interface Quiz {
   id: number;
   title: string;
@@ -280,4 +296,66 @@ export interface PointHistoryItem {
   date: string;
   points: number;
 }
+
+export type SshsAspectItem = {
+  id: number;
+  item_key: string;
+  label: string;
+  score_kind: 'abc' | 'text';
+  sort_order: number;
+  description: string | null;
+  score: string | null;
+};
+
+export type SshsAspectBlock = {
+  id: number;
+  code: string;
+  title: string;
+  sort_order: number;
+  items: SshsAspectItem[];
+};
+
+export type SshsSubjectRow = {
+  subject_id: number;
+  subject_name: string;
+  sort_order: number;
+  key_learning_focus: string | null;
+  ca: number | null;
+  ma: number | null;
+  term_average: number | null;
+};
+
+export type PublishedCardSummary = {
+  id: number;
+  class_name: string;
+  term_name: string;
+  term_number: number;
+  academic_year_name: string;
+  published_at: string | null;
+};
+
+export type PublishedCard = {
+  id: number;
+  school_level: 'secondary' | 'high_school';
+  homeroom_comment: string | null;
+  area_for_development: string | null;
+  student_name: string;
+  student_nis: string;
+  class_name: string;
+  phase: string | null;
+  term_name: string;
+  term_number: number;
+  academic_year_name: string;
+  school_name: string;
+  school_logo_url: string | null;
+  school_address: string | null;
+  school_tagline: string | null;
+  school_phone: string | null;
+  school_email: string | null;
+  school_website: string | null;
+  principal_name: string | null;
+  homeroom_teacher: string | null;
+  subjects: SshsSubjectRow[];
+  aspects: SshsAspectBlock[];
+};
 

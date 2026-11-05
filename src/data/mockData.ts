@@ -15,6 +15,9 @@ import {
   CourseSessionDetail,
   WeeklyPlanSession,
   ClassHabitRankItem,
+  QuizQuestion,
+  PublishedCardSummary,
+  PublishedCard,
 } from '../types';
 
 export const STUDENT_PROFILE: StudentProfile = {
@@ -1523,6 +1526,396 @@ export const WEEKLY_PLAN_MOCK_SESSIONS: Record<string, WeeklyPlanSession[]> = {
 
 export const getWeeklyPlanForWeek = (weekStartIso: string): WeeklyPlanSession[] => {
   return WEEKLY_PLAN_MOCK_SESSIONS[weekStartIso] || WEEKLY_PLAN_MOCK_SESSIONS['2026-09-21'] || [];
+};
+
+export const SAMPLE_QUIZ_QUESTIONS: Record<number, QuizQuestion[]> = {
+  1: [
+    {
+      id: 101,
+      question_type: 'multiple_choice',
+      question_text: 'What are the three primary colors in traditional art color theory?',
+      points: 20,
+      options: [
+        { id: 1, optionLabel: 'A', optionText: 'Red, Yellow, Blue', isCorrect: true },
+        { id: 2, optionLabel: 'B', optionText: 'Red, Green, Blue', isCorrect: false },
+        { id: 3, optionLabel: 'C', optionText: 'Cyan, Magenta, Yellow', isCorrect: false },
+        { id: 4, optionLabel: 'D', optionText: 'Orange, Purple, Green', isCorrect: false },
+      ],
+      explanation: 'Red, Yellow, and Blue cannot be created by mixing other colors.',
+    },
+    {
+      id: 102,
+      question_type: 'multiple_choice',
+      question_text: 'Which element of art refers to the lightness or darkness of a color?',
+      points: 20,
+      options: [
+        { id: 5, optionLabel: 'A', optionText: 'Texture', isCorrect: false },
+        { id: 6, optionLabel: 'B', optionText: 'Value', isCorrect: true },
+        { id: 7, optionLabel: 'C', optionText: 'Form', isCorrect: false },
+        { id: 8, optionLabel: 'D', optionText: 'Space', isCorrect: false },
+      ],
+      explanation: 'Value is the relative lightness or darkness of a color or tone.',
+    },
+    {
+      id: 103,
+      question_type: 'multiple_choice',
+      question_text: 'What is the technique called when overlapping layers of transparent paint create depth?',
+      points: 20,
+      options: [
+        { id: 9, optionLabel: 'A', optionText: 'Impasto', isCorrect: false },
+        { id: 10, optionLabel: 'B', optionText: 'Glazing', isCorrect: true },
+        { id: 11, optionLabel: 'C', optionText: 'Sgraffito', isCorrect: false },
+        { id: 12, optionLabel: 'D', optionText: 'Pointillism', isCorrect: false },
+      ],
+      explanation: 'Glazing uses thin, transparent layers applied over a dry paint layer.',
+    },
+    {
+      id: 104,
+      question_type: 'multiple_choice',
+      question_text: 'In linear perspective, what is the point on the horizon line where parallel lines seem to converge?',
+      points: 20,
+      options: [
+        { id: 13, optionLabel: 'A', optionText: 'Focal Point', isCorrect: false },
+        { id: 14, optionLabel: 'B', optionText: 'Vanishing Point', isCorrect: true },
+        { id: 15, optionLabel: 'C', optionText: 'Anchor Point', isCorrect: false },
+        { id: 16, optionLabel: 'D', optionText: 'Zenith', isCorrect: false },
+      ],
+      explanation: 'The vanishing point is where receding parallel lines appear to meet.',
+    },
+    {
+      id: 105,
+      question_type: 'multiple_choice',
+      question_text: 'Which term describes colors directly opposite each other on the color wheel?',
+      points: 20,
+      options: [
+        { id: 17, optionLabel: 'A', optionText: 'Analogous', isCorrect: false },
+        { id: 18, optionLabel: 'B', optionText: 'Monochromatic', isCorrect: false },
+        { id: 19, optionLabel: 'C', optionText: 'Complementary', isCorrect: true },
+        { id: 20, optionLabel: 'D', optionText: 'Tertiary', isCorrect: false },
+      ],
+      explanation: 'Complementary colors (e.g. Blue & Orange) provide maximum contrast.',
+    },
+  ],
+};
+
+export const getQuizQuestions = (quizId: number): QuizQuestion[] => {
+  if (SAMPLE_QUIZ_QUESTIONS[quizId]) {
+    return SAMPLE_QUIZ_QUESTIONS[quizId];
+  }
+  // Generates generic questions for any other quiz ID based on its topic
+  return [
+    {
+      id: quizId * 100 + 1,
+      question_type: 'multiple_choice',
+      question_text: 'Which of the following is the fundamental concept in this checkpoint unit?',
+      points: 20,
+      options: [
+        { id: 1, optionLabel: 'A', optionText: 'Core foundational principles & theorems', isCorrect: true },
+        { id: 2, optionLabel: 'B', optionText: 'Secondary experimental assumptions only', isCorrect: false },
+        { id: 3, optionLabel: 'C', optionText: 'Unverified conjectures', isCorrect: false },
+        { id: 4, optionLabel: 'D', optionText: 'Historical anecdotes', isCorrect: false },
+      ],
+      explanation: 'Foundational principles form the benchmark for this assessment.',
+    },
+    {
+      id: quizId * 100 + 2,
+      question_type: 'multiple_choice',
+      question_text: 'What is the primary method used to analyze experimental results in this syllabus?',
+      points: 20,
+      options: [
+        { id: 5, optionLabel: 'A', optionText: 'Qualitative observation and empirical measurement', isCorrect: true },
+        { id: 6, optionLabel: 'B', optionText: 'Arbitrary estimation', isCorrect: false },
+        { id: 7, optionLabel: 'C', optionText: 'Unstructured brainstorming', isCorrect: false },
+        { id: 8, optionLabel: 'D', optionText: 'Single-variable extrapolation', isCorrect: false },
+      ],
+      explanation: 'Empirical measurement combined with systematic evaluation is standard.',
+    },
+    {
+      id: quizId * 100 + 3,
+      question_type: 'multiple_choice',
+      question_text: 'Which step is critical during the verification phase of the checkpoint analysis?',
+      points: 20,
+      options: [
+        { id: 9, optionLabel: 'A', optionText: 'Cross-referencing baseline metrics with observed data', isCorrect: true },
+        { id: 10, optionLabel: 'B', optionText: 'Discarding outliers without logging', isCorrect: false },
+        { id: 11, optionLabel: 'C', optionText: 'Changing hypothesis post-trial', isCorrect: false },
+        { id: 12, optionLabel: 'D', optionText: 'Skipping calibration checks', isCorrect: false },
+      ],
+      explanation: 'Cross-referencing ensures reproducibility and precision.',
+    },
+    {
+      id: quizId * 100 + 4,
+      question_type: 'multiple_choice',
+      question_text: 'What represents the optimal application of the principles covered in this term?',
+      points: 20,
+      options: [
+        { id: 13, optionLabel: 'A', optionText: 'Applying structured analytical models to real scenarios', isCorrect: true },
+        { id: 14, optionLabel: 'B', optionText: 'Rote memorization without contextual synthesis', isCorrect: false },
+        { id: 15, optionLabel: 'C', optionText: 'Ignoring systemic constraints', isCorrect: false },
+        { id: 16, optionLabel: 'D', optionText: 'Relying solely on intuition', isCorrect: false },
+      ],
+      explanation: 'Structured application demonstrates mastery of Cambridge IGCSE competencies.',
+    },
+    {
+      id: quizId * 100 + 5,
+      question_type: 'multiple_choice',
+      question_text: 'How should conclusions be substantiated according to evaluation criteria?',
+      points: 20,
+      options: [
+        { id: 17, optionLabel: 'A', optionText: 'Citing verifiable evidence and comprehensive data tables', isCorrect: true },
+        { id: 18, optionLabel: 'B', optionText: 'Stating personal opinions without data support', isCorrect: false },
+        { id: 19, optionLabel: 'C', optionText: 'Omitting calculation steps', isCorrect: false },
+        { id: 20, optionLabel: 'D', optionText: 'Using generalized non-specific assertions', isCorrect: false },
+      ],
+      explanation: 'Verifiable evidence and sound deductions are mandatory.',
+    },
+  ];
+};
+
+export const RUBRIC_LABEL: Record<string, string> = {
+  A: 'Consistently Demonstrated',
+  B: 'Usually Demonstrated',
+  C: 'Developing',
+};
+
+export function rubricPhrase(level: string | null): string {
+  if (!level) return '';
+  return RUBRIC_LABEL[level] ?? level;
+}
+
+export const MOCK_PUBLISHED_CARDS_SUMMARY: PublishedCardSummary[] = [
+  {
+    id: 1,
+    academic_year_name: 'Academic Year 2026/2027',
+    term_name: 'Term 1',
+    term_number: 1,
+    class_name: 'Class S4 A',
+    published_at: '2026-10-25T08:00:00Z',
+  },
+  {
+    id: 2,
+    academic_year_name: 'Academic Year 2025/2026',
+    term_name: 'Term 4',
+    term_number: 4,
+    class_name: 'Class S3 Oxford',
+    published_at: '2026-06-18T08:00:00Z',
+  },
+];
+
+export const MOCK_PUBLISHED_CARDS_DETAIL: Record<number, PublishedCard> = {
+  1: {
+    id: 1,
+    school_level: 'high_school',
+    homeroom_comment: 'Fatih demonstrates strong commitment, analytical prowess, and positive moral character.',
+    area_for_development:
+      'Fatih has shown remarkable diligence, inquisitive enthusiasm, and scholastic excellence throughout this term. To further elevate performance, he is encouraged to push beyond comfort zones in collaborative presentations and engage more deeply with open-ended mathematical modeling exercises.',
+    student_name: 'Alfiyyah Nur Rachmania',
+    student_nis: '2602',
+    class_name: 'S4 A',
+    phase: 'Phase E (High School)',
+    term_name: 'Term 1',
+    term_number: 1,
+    academic_year_name: 'Academic Year 2026/2027',
+    school_name: 'Kreativa Global High School',
+    school_logo_url: null,
+    school_address: 'Jl. Pemuda No. 45, Kompleks Edukasi Kreativa',
+    school_tagline: 'Inspiring Character, Elevating Intellect',
+    school_phone: '+62 21 8765 4321',
+    school_email: 'info@learn.kreativaglobal.sch.id',
+    school_website: 'https://learn.kreativaglobal.sch.id',
+    principal_name: 'Dr. H. Muhammad Ridwan, M.Ed.',
+    homeroom_teacher: 'Daniel Hartono',
+    subjects: [
+      {
+        subject_id: 10,
+        subject_name: 'Mathematics IGCSE',
+        sort_order: 1,
+        key_learning_focus: 'Algebraic manipulation, quadratic functions & graphing',
+        ca: 90,
+        ma: 94,
+        term_average: 92,
+      },
+      {
+        subject_id: 3,
+        subject_name: 'Biology IGCSE',
+        sort_order: 2,
+        key_learning_focus: 'Genetics, cell structure and molecular ecology',
+        ca: 86,
+        ma: 90,
+        term_average: 88,
+      },
+      {
+        subject_id: 6,
+        subject_name: 'English Language IGCSE',
+        sort_order: 3,
+        key_learning_focus: 'Analytical essay structures & discursive comprehension',
+        ca: 84,
+        ma: 86,
+        term_average: 85,
+      },
+      {
+        subject_id: 12,
+        subject_name: 'Physics IGCSE',
+        sort_order: 4,
+        key_learning_focus: 'Kinematics, Newtonian dynamics and energy dissipation',
+        ca: 88,
+        ma: 90,
+        term_average: 89,
+      },
+      {
+        subject_id: 4,
+        subject_name: 'Chemistry IGCSE',
+        sort_order: 5,
+        key_learning_focus: 'Stoichiometry, chemical equilibrium & periodic trends',
+        ca: 82,
+        ma: 86,
+        term_average: 84,
+      },
+      {
+        subject_id: 9,
+        subject_name: 'Islamic Studies IGCSE',
+        sort_order: 6,
+        key_learning_focus: 'Tahfizh Surah Al-Kahf, fiqh of modern transactions & adab',
+        ca: 94,
+        ma: 96,
+        term_average: 95,
+      },
+    ],
+    aspects: [
+      {
+        id: 1,
+        code: 'VALUES',
+        title: 'Character and Core Values',
+        sort_order: 1,
+        items: [
+          {
+            id: 101,
+            item_key: 'integrity',
+            label: 'Integrity & Responsibility',
+            score_kind: 'abc',
+            sort_order: 1,
+            score: 'A',
+            description: 'Demonstrates trustworthiness, fulfills academic obligations on time, and exhibits accountability.',
+          },
+          {
+            id: 102,
+            item_key: 'respect',
+            label: 'Respect & Inclusivity',
+            score_kind: 'abc',
+            sort_order: 2,
+            score: 'A',
+            description: 'Shows profound respect to peers, instructors, and diverse perspectives within the school community.',
+          },
+          {
+            id: 103,
+            item_key: 'spiritual',
+            label: 'Spiritual Devotion & Habits',
+            score_kind: 'abc',
+            sort_order: 3,
+            score: 'A',
+            description: 'Consistently performs daily prayer habits, Quranic recitation, and reflects Islamic values in daily interactions.',
+          },
+        ],
+      },
+      {
+        id: 2,
+        code: 'COMPETENCIES',
+        title: 'Core Competencies',
+        sort_order: 2,
+        items: [
+          {
+            id: 201,
+            item_key: 'critical_thinking',
+            label: 'Critical Thinking & Problem Solving',
+            score_kind: 'abc',
+            sort_order: 1,
+            score: 'B',
+            description: 'Analyzes complex problems systematically and provides well-reasoned solutions.',
+          },
+          {
+            id: 202,
+            item_key: 'collaboration',
+            label: 'Communication & Collaboration',
+            score_kind: 'abc',
+            sort_order: 2,
+            score: 'A',
+            description: 'Articulates concepts effectively in group discussions and supports collaborative learning environments.',
+          },
+          {
+            id: 203,
+            item_key: 'self_directed',
+            label: 'Self-Directed Learning',
+            score_kind: 'abc',
+            sort_order: 3,
+            score: 'A',
+            description: 'Actively utilizes study resources, explores supplementary literature, and manages study timelines effectively.',
+          },
+        ],
+      },
+    ],
+  },
+  2: {
+    id: 2,
+    school_level: 'high_school',
+    homeroom_comment: 'Consistent achievement across terms with notable growth in scientific enquiry.',
+    area_for_development:
+      'Maintains steadfast progress in foundational disciplines. Recommended to further enhance independent synthesis in extended essay drafts.',
+    student_name: 'Alfiyyah Nur Rachmania',
+    student_nis: '2602',
+    class_name: 'S3 Oxford',
+    phase: 'Phase E (High School)',
+    term_name: 'Term 4',
+    term_number: 4,
+    academic_year_name: 'Academic Year 2025/2026',
+    school_name: 'Kreativa Global High School',
+    school_logo_url: null,
+    school_address: 'Jl. Pemuda No. 45, Kompleks Edukasi Kreativa',
+    school_tagline: 'Inspiring Character, Elevating Intellect',
+    school_phone: '+62 21 8765 4321',
+    school_email: 'info@learn.kreativaglobal.sch.id',
+    school_website: 'https://learn.kreativaglobal.sch.id',
+    principal_name: 'Dr. H. Muhammad Ridwan, M.Ed.',
+    homeroom_teacher: 'Daniel Hartono',
+    subjects: [
+      {
+        subject_id: 10,
+        subject_name: 'Mathematics IGCSE',
+        sort_order: 1,
+        key_learning_focus: 'Trigonometry & coordinates geometry',
+        ca: 88,
+        ma: 92,
+        term_average: 90,
+      },
+      {
+        subject_id: 3,
+        subject_name: 'Biology IGCSE',
+        sort_order: 2,
+        key_learning_focus: 'Human physiology & transport systems',
+        ca: 85,
+        ma: 89,
+        term_average: 87,
+      },
+    ],
+    aspects: [
+      {
+        id: 1,
+        code: 'VALUES',
+        title: 'Character and Core Values',
+        sort_order: 1,
+        items: [
+          {
+            id: 101,
+            item_key: 'integrity',
+            label: 'Integrity & Responsibility',
+            score_kind: 'abc',
+            sort_order: 1,
+            score: 'A',
+            description: 'Consistently demonstrates academic honesty and responsibility.',
+          },
+        ],
+      },
+    ],
+  },
 };
 
 

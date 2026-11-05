@@ -19,6 +19,7 @@ import {
 import RootNavigator from './src/navigation/RootNavigator';
 import { NotificationProvider } from './src/context/NotificationContext';
 import { StudentDataProvider } from './src/context/StudentDataContext';
+import { AuthProvider } from './src/context/AuthContext';
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -84,14 +85,16 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StudentDataProvider>
-        <NotificationProvider>
-          <NavigationContainer>
-            <StatusBar style="dark" />
-            <RootNavigator />
-          </NavigationContainer>
-        </NotificationProvider>
-      </StudentDataProvider>
+      <AuthProvider>
+        <StudentDataProvider>
+          <NotificationProvider>
+            <NavigationContainer>
+              <StatusBar style="dark" />
+              <RootNavigator />
+            </NavigationContainer>
+          </NotificationProvider>
+        </StudentDataProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

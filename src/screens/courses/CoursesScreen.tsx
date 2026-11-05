@@ -63,6 +63,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onPress, index }) => {
 export const CoursesScreen: React.FC = () => {
   const {
     courses,
+    studentProfile,
     isLoading,
     isRefreshing,
     isError,
@@ -120,6 +121,8 @@ export const CoursesScreen: React.FC = () => {
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -132,7 +135,7 @@ export const CoursesScreen: React.FC = () => {
           {/* Header Title */}
           <View style={styles.headerBox}>
             <Text style={styles.pageTitle}>My Courses</Text>
-            <Text style={styles.pageSubtitle}>Academic Year 7</Text>
+            <Text style={styles.pageSubtitle}>{studentProfile?.academicYearName || 'Academic Year 2026/2027'}</Text>
           </View>
 
           {/* Data State Guards */}

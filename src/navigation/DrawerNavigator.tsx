@@ -11,8 +11,8 @@ const Drawer = createDrawerNavigator<DrawerParamList>();
 export const DrawerNavigator: React.FC = () => {
   const { width } = useWindowDimensions();
 
-  // Match reference screenshot proportion: 74% on mobile, max 320 on tablets
-  const drawerWidth = width >= 768 ? 320 : Math.round(width * 0.74);
+  // Exactly matches Web sidebar width: w-72 (288px) on mobile, 320px on tablet
+  const drawerWidth = width >= 768 ? 320 : 288;
 
   return (
     <Drawer.Navigator
@@ -24,7 +24,7 @@ export const DrawerNavigator: React.FC = () => {
           width: drawerWidth,
           backgroundColor: '#5001B2',
         },
-        overlayColor: 'rgba(15, 23, 42, 0.55)',
+        overlayColor: 'rgba(0, 0, 0, 0.50)', // Matches Web bg-black/50
         swipeEdgeWidth: 100,
         swipeEnabled: true,
       }}

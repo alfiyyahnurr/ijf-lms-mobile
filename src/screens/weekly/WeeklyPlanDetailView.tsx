@@ -7,6 +7,10 @@ import {
   TouchableOpacity,
   TextInput,
   Linking,
+  Platform,
+  KeyboardAvoidingView,
+  Keyboard,
+  KeyboardEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FONTS, SHADOWS } from '../../constants/theme';
@@ -29,7 +33,28 @@ export const WeeklyPlanDetailView: React.FC<WeeklyPlanDetailViewProps> = ({
   const [postDone, setPostDone] = useState<boolean>(Boolean(session.postDone));
   const [preQuestion, setPreQuestion] = useState<string>(session.preQuestion || '');
   const [postNote, setPostNote] = useState<string>(session.postNote || '');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollRef = useRef<any>(null);
+  const afterCardY = useRef<number>(420);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e: any) => {
+      if (e?.endCoordinates?.height) {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -66,12 +91,21 @@ export const WeeklyPlanDetailView: React.FC<WeeklyPlanDetailViewProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 68 : 0}
+    >
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 80 : 80 },
+        ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {/* Back Button matching Screenshot: "← Back to Weekly Plan" */}
         <TouchableOpacity
@@ -150,11 +184,21 @@ export const WeeklyPlanDetailView: React.FC<WeeklyPlanDetailViewProps> = ({
             multiline
             numberOfLines={3}
             textAlignVertical="top"
+            onFocus={() => {
+              setTimeout(() => {
+                scrollRef.current?.scrollTo({ y: 160, animated: true });
+              }, 120);
+            }}
           />
         </View>
 
         {/* Card 2: AFTER CLASS (Soft Mint Card) */}
-        <View style={styles.afterCard}>
+        <View
+          style={styles.afterCard}
+          onLayout={(e) => {
+            afterCardY.current = e.nativeEvent.layout.y;
+          }}
+        >
           <View style={styles.cardHeaderRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.afterBadge}>AFTER CLASS</Text>
@@ -197,6 +241,14 @@ export const WeeklyPlanDetailView: React.FC<WeeklyPlanDetailViewProps> = ({
             multiline
             numberOfLines={3}
             textAlignVertical="top"
+            onFocus={() => {
+              setTimeout(() => {
+                scrollRef.current?.scrollTo({
+                  y: Math.max(540, (afterCardY.current || 420) + 120),
+                  animated: true,
+                });
+              }, 120);
+            }}
           />
         </View>
 
@@ -215,7 +267,7 @@ export const WeeklyPlanDetailView: React.FC<WeeklyPlanDetailViewProps> = ({
           </Text>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

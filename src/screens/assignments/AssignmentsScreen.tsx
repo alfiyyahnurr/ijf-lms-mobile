@@ -11,6 +11,7 @@ import EmptyState from '../../components/feedback/EmptyState';
 import ErrorState from '../../components/feedback/ErrorState';
 import CardSkeleton from '../../components/feedback/CardSkeleton';
 import { COLORS, FONTS, SHADOWS } from '../../constants/theme';
+import Badge from '../../components/common/Badge';
 import AssignmentDetailView from './AssignmentDetailView';
 
 export const AssignmentsScreen: React.FC = () => {
@@ -116,6 +117,8 @@ export const AssignmentsScreen: React.FC = () => {
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -149,7 +152,7 @@ export const AssignmentsScreen: React.FC = () => {
               onAction={refreshAllData}
             />
           ) : (
-            /* Cards List matching Screenshot 110036 */
+            /* Cards List matching Web assignments-list-client */
             <View style={styles.cardList}>
               {assignments.map((assignment) => (
                 <TouchableOpacity
@@ -158,34 +161,30 @@ export const AssignmentsScreen: React.FC = () => {
                   activeOpacity={0.75}
                   style={styles.assignmentCard}
                 >
-                  {/* Title */}
-                  <Text style={styles.assignmentTitle} numberOfLines={2}>
-                    {assignment.title}
-                  </Text>
-
-                  {/* Course and Due Date */}
-                  <Text style={styles.assignmentSubtitle} numberOfLines={2}>
-                    {assignment.course} • Due: {assignment.dueDate}
-                  </Text>
-
-                  {/* Status pill located UNDER subtitle */}
-                  <View style={styles.statusPillRow}>
-                    <View
-                      style={
-                        assignment.status === 'pending'
-                          ? styles.pendingPill
-                          : styles.submittedPill
-                      }
-                    >
-                      <Text
-                        style={
-                          assignment.status === 'pending'
-                            ? styles.pendingPillText
-                            : styles.submittedPillText
+                  <View style={styles.assignmentCardInner}>
+                    <View style={styles.assignmentCardMain}>
+                      <Text style={styles.assignmentTitle} numberOfLines={2}>
+                        {assignment.title}
+                      </Text>
+                      <Text style={styles.assignmentSubtitle} numberOfLines={2}>
+                        {assignment.course} • Due: {assignment.dueDate}
+                      </Text>
+                    </View>
+                    <View style={styles.assignmentCardRight}>
+                      {assignment.score && assignment.score !== '—' && (
+                        <Text style={styles.assignmentScoreText}>{assignment.score}/100</Text>
+                      )}
+                      <Badge
+                        color={
+                          assignment.status === 'graded'
+                            ? 'green'
+                            : assignment.status === 'submitted'
+                            ? 'blue'
+                            : 'orange'
                         }
                       >
                         {assignment.status}
-                      </Text>
+                      </Badge>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -243,51 +242,41 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    padding: 18,
+    padding: 16,
     ...SHADOWS.sm,
   },
+  assignmentCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  assignmentCardMain: {
+    flex: 1,
+  },
   assignmentTitle: {
-    fontFamily: FONTS.bold,
-    fontSize: 15,
-    fontWeight: '700',
+    fontFamily: FONTS.semiBold,
+    fontSize: 14.5,
+    fontWeight: '600',
     color: '#0F172A',
-    lineHeight: 21,
-    marginBottom: 6,
+    lineHeight: 20,
+    marginBottom: 4,
   },
   assignmentSubtitle: {
     fontFamily: FONTS.regular,
     fontSize: 12.5,
-    color: '#64748B',
+    color: '#475569',
     lineHeight: 18,
-    marginBottom: 10,
   },
-  statusPillRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  assignmentCardRight: {
+    alignItems: 'flex-end',
+    gap: 6,
   },
-  pendingPill: {
-    backgroundColor: '#FFEDD5',
-    paddingHorizontal: 12,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  pendingPillText: {
-    fontFamily: FONTS.semiBold,
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#C2410C',
-  },
-  submittedPill: {
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 12,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  submittedPillText: {
-    fontFamily: FONTS.semiBold,
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#15803D',
+  assignmentScoreText: {
+    fontFamily: FONTS.bold,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#16A34A',
   },
 });
 

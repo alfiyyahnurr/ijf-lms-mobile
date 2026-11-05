@@ -34,6 +34,15 @@ export const ProfileScreen: React.FC = () => {
     }
   }, [route.params?.resetKey]);
 
+  const initials = studentProfile.fullName
+    ? studentProfile.fullName
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase()
+    : 'ST';
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <AppHeader title="Profile" />
@@ -55,9 +64,7 @@ export const ProfileScreen: React.FC = () => {
           {/* Top Row: Avatar + Name + Email */}
           <View style={styles.topRow}>
             <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitial}>
-                {studentProfile.fullName.charAt(0).toUpperCase()}
-              </Text>
+              <Text style={styles.avatarInitial}>{initials}</Text>
             </View>
             <View style={styles.topDetails}>
               <Text style={styles.studentName}>{studentProfile.fullName}</Text>
@@ -86,6 +93,13 @@ export const ProfileScreen: React.FC = () => {
               <Text style={styles.fieldLabel}>STUDENT ID</Text>
               <Text style={styles.fieldValue}>{studentProfile.studentId}</Text>
             </View>
+
+            {studentProfile.house && (
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>HOUSE</Text>
+                <Text style={styles.fieldValue}>{studentProfile.house}</Text>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>

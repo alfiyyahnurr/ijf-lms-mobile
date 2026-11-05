@@ -24,6 +24,8 @@ import {
   LiteracyProgressStats,
   Announcement,
   ScheduleItem,
+  PublishedCardSummary,
+  PublishedCard,
 } from '../types';
 
 import {
@@ -45,12 +47,122 @@ import {
   getCourseSessionDetail,
   getWeeklyPlanForWeek,
   HABIT_GROUPS_INITIAL,
+  MOCK_PUBLISHED_CARDS_SUMMARY,
+  MOCK_PUBLISHED_CARDS_DETAIL,
 } from '../data/mockData';
 
 export const API_BASE_URL = 'https://learn.kreativaglobal.sch.id';
 
+// Persistent in-memory auth token
+let activeAuthToken: string | null = null;
+
+export const setAuthToken = (token: string | null) => {
+  activeAuthToken = token;
+};
+
+export const getAuthToken = () => activeAuthToken;
+
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  constructor(message: string, status: number = 400, code?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
+/**
+ * Universal live network request helper with automatic bearer token & fallback protection
+ */
+export async function requestApi<T>(
+  endpoint: string,
+  method: string = 'GET',
+  body?: any,
+  fallbackData?: T
+): Promise<T> {
+  try {
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    };
+    if (activeAuthToken) {
+      headers['Authorization'] = `Bearer ${activeAuthToken}`;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const fullUrl = `${API_BASE_URL}${endpoint}`;
+    console.log(`[API Request] ${method} ${fullUrl}`);
+    if (body) {
+      console.log('[API Payload]', JSON.stringify(body, null, 2));
+    }
+
+    const res = await fetch(fullUrl, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    console.log(`[API Response] Status: ${res.status} ${res.statusText}`);
+
+    if (res.ok) {
+      const json = await res.json();
+      console.log('[API Success Data]', JSON.stringify(json, null, 2));
+      return json as T;
+    }
+
+    // Attempt to extract structured error response from server
+    const errorJson = await res.json().catch(() => null);
+    const serverMessage = errorJson?.error || res.statusText || 'Request failed';
+    const serverCode = errorJson?.code;
+
+    console.log(`[API Server Error] Status ${res.status}:`, serverMessage, serverCode || '');
+
+    // For 401 or 403, throw explicit ApiError without using fallback data
+    if (res.status === 401 || res.status === 403) {
+      throw new ApiError(serverMessage, res.status, serverCode);
+    }
+
+    if (fallbackData !== undefined) return fallbackData;
+    throw new ApiError(serverMessage, res.status, serverCode);
+  } catch (err: any) {
+    if (err instanceof ApiError) {
+      throw err;
+    }
+    if (fallbackData !== undefined) {
+      return fallbackData;
+    }
+    throw err;
+  }
+}
+
 // In-memory dynamic store for Literacy entries
 let inMemoryLiteracyEntries: LiteracyEntry[] = [...INITIAL_LITERACY_ENTRIES];
+
+// Registered student database records in Kreativa LMS
+export const REGISTERED_STUDENTS_DB: Record<string, any> = {
+  'fatih@learn.kreativaglobal.sch.id': {
+    userId: 2602,
+    studentId: 2602,
+    schoolId: 6,
+    email: 'fatih@learn.kreativaglobal.sch.id',
+    fullName: 'Fatih Alamsyah',
+    role: 'student',
+  },
+  'fatih.alamsyah@learn.kreativaglobal.sch.id': {
+    userId: 2602,
+    studentId: 2602,
+    schoolId: 6,
+    email: 'fatih.alamsyah@learn.kreativaglobal.sch.id',
+    fullName: 'Fatih Alamsyah',
+    role: 'student',
+  },
+};
 
 export const api = {
   // ==========================================
@@ -58,24 +170,150 @@ export const api = {
   // ==========================================
   auth: {
     // POST {{baseUrl}}/api/auth/login or /api/mobile/auth/google
-    loginWithGoogle: async (tokenOrPayload: string | { idToken?: string; accessToken?: string }) => {
-      const token = typeof tokenOrPayload === 'string' ? tokenOrPayload : (tokenOrPayload.accessToken || tokenOrPayload.idToken || 'mock_token');
+    loginWithGoogle: async (tokenOrPayload?: any) => {
+      // 1. Support emulator test simulations
+      if (tokenOrPayload?.simulate === 'unregistered' || tokenOrPayload === 'simulate_unregistered') {
+        console.log('[Simulation] Simulating unregistered account (403)');
+        throw new ApiError(
+          'Your account is not registered. Please contact your school administrator to get access.',
+          403,
+          'ACCOUNT_NOT_REGISTERED'
+        );
+      }
+
+      if (tokenOrPayload?.simulate === 'non_student' || tokenOrPayload === 'simulate_non_student') {
+        console.log('[Simulation] Simulating non-student account (403)');
+        throw new ApiError(
+          'This app is only accessible for registered student accounts.',
+          403,
+          'NOT_A_STUDENT'
+        );
+      }
+
+      const email = typeof tokenOrPayload === 'object' ? tokenOrPayload?.email?.trim().toLowerCase() : undefined;
+      const accessToken =
+        typeof tokenOrPayload === 'string'
+          ? tokenOrPayload
+          : tokenOrPayload?.accessToken;
+      const idToken =
+        typeof tokenOrPayload === 'object'
+          ? tokenOrPayload?.idToken
+          : undefined;
+
+      // 2. If real Google tokens are present, call live backend API
+      if (accessToken || idToken) {
+        console.log('[Auth] Requesting authentication from backend API...');
+        try {
+          const liveRes = await requestApi<any>('/api/auth/login', 'POST', {
+            accessToken: accessToken || undefined,
+            idToken: idToken || undefined,
+          });
+
+          if (liveRes?.accessToken || liveRes?.token) {
+            const jwt = liveRes.accessToken || liveRes.token;
+            setAuthToken(jwt);
+            return {
+              tokenType: liveRes.tokenType || 'Bearer',
+              accessToken: jwt,
+              token: jwt,
+              expiresIn: liveRes.expiresIn || 2592000,
+              studentId: liveRes.studentId || liveRes.user?.studentId || STUDENT_PROFILE.studentId,
+              userId: liveRes.userId || liveRes.user?.userId || STUDENT_PROFILE.userId,
+              schoolId: liveRes.schoolId || liveRes.user?.schoolId || STUDENT_PROFILE.schoolId,
+              user: {
+                userId: liveRes.userId || liveRes.user?.userId || STUDENT_PROFILE.userId,
+                studentId: liveRes.studentId || liveRes.user?.studentId || STUDENT_PROFILE.studentId,
+                schoolId: liveRes.schoolId || liveRes.user?.schoolId || STUDENT_PROFILE.schoolId,
+                email: liveRes.user?.email || STUDENT_PROFILE.email,
+                fullName: liveRes.user?.fullName || liveRes.user?.name || STUDENT_PROFILE.fullName,
+                role: (liveRes.user?.role || 'student') as 'student',
+              },
+            };
+          }
+        } catch (err: any) {
+          if (err instanceof ApiError) {
+            if (
+              err.status === 403 &&
+              (err.code === 'ACCOUNT_NOT_REGISTERED' ||
+                err.message.toLowerCase().includes('not registered'))
+            ) {
+              throw new ApiError(
+                'Your account is not registered. Please contact your school administrator to get access.',
+                403,
+                'ACCOUNT_NOT_REGISTERED'
+              );
+            }
+            if (err.status === 403 && err.message.toLowerCase().includes('student')) {
+              throw new ApiError(
+                'This app is only accessible for registered student accounts.',
+                403,
+                'NOT_A_STUDENT'
+              );
+            }
+            throw err;
+          }
+          throw new ApiError(
+            'Unable to connect to LMS server. Please check your internet connection.',
+            503
+          );
+        }
+      }
+
+      // 3. Validate Google Account Email against Database
+      if (email) {
+        console.log(`[Auth Check] Validating account email: "${email}"`);
+
+        // Check if teacher/non-student account
+        if (email.includes('teacher') || email.includes('admin') || email.includes('staff')) {
+          console.log(`[Auth Check] Account "${email}" is not a student account (403)`);
+          throw new ApiError(
+            'This app is only accessible for registered student accounts.',
+            403,
+            'NOT_A_STUDENT'
+          );
+        }
+
+        // Check if account exists in database core_users
+        const matchedStudent = REGISTERED_STUDENTS_DB[email];
+        if (!matchedStudent) {
+          console.log(`[Auth Check] Account "${email}" not found in database (403)`);
+          // Account is NOT registered in the database!
+          throw new ApiError(
+            'Your account is not registered. Please contact your school administrator to get access.',
+            403,
+            'ACCOUNT_NOT_REGISTERED'
+          );
+        }
+
+        console.log(`[Auth Check] Account "${email}" verified successfully (Student ID: ${matchedStudent.studentId})`);
+        const mockJwt = 'jwt_' + matchedStudent.userId + '_' + Date.now();
+        setAuthToken(mockJwt);
+        return {
+          tokenType: 'Bearer',
+          accessToken: mockJwt,
+          token: mockJwt,
+          expiresIn: 2592000,
+          studentId: matchedStudent.studentId,
+          userId: matchedStudent.userId,
+          schoolId: matchedStudent.schoolId,
+          user: { ...matchedStudent },
+        };
+      }
+
+      // 4. Default Student Login (Registered Student in Database: Fatih Alamsyah)
+      const defaultStudent = REGISTERED_STUDENTS_DB['fatih@learn.kreativaglobal.sch.id'];
+      const defaultJwt = 'jwt_' + defaultStudent.userId + '_' + Date.now();
+      setAuthToken(defaultJwt);
+      console.log(`[Auth Success] Signed in as student: "${defaultStudent.fullName}" (${defaultStudent.email})`);
       return {
         tokenType: 'Bearer',
-        accessToken: 'mock_jwt_token_' + Date.now(),
-        token: 'mock_jwt_token_' + Date.now(),
+        accessToken: defaultJwt,
+        token: defaultJwt,
         expiresIn: 2592000,
-        studentId: STUDENT_PROFILE.studentId, // 2602
-        userId: STUDENT_PROFILE.userId,       // 2602
-        schoolId: STUDENT_PROFILE.schoolId,   // 6
-        user: {
-          userId: STUDENT_PROFILE.userId,
-          studentId: STUDENT_PROFILE.studentId,
-          schoolId: STUDENT_PROFILE.schoolId,
-          email: STUDENT_PROFILE.email,
-          fullName: STUDENT_PROFILE.fullName,
-          role: 'student' as const,
-        },
+        studentId: defaultStudent.studentId,
+        userId: defaultStudent.userId,
+        schoolId: defaultStudent.schoolId,
+        user: { ...defaultStudent },
       };
     },
 
@@ -381,35 +619,40 @@ export const api = {
   // ==========================================
   reportCards: {
     // GET {{baseUrl}}/api/student/report-cards
-    list: async () => {
-      return [
-        {
-          id: 1,
-          reportCardId: 1,
-          term: 'Term 1 2026/2027',
-          academicYear: '2026/2027',
-          publishedAt: '2026-10-25',
-          gpa: '3.85',
-          status: 'published',
-        },
-      ];
+    list: async (): Promise<PublishedCardSummary[]> => {
+      try {
+        const res = await requestApi<{ cards: PublishedCardSummary[] }>(
+          '/api/student/report-cards',
+          'GET',
+          undefined,
+          { cards: MOCK_PUBLISHED_CARDS_SUMMARY }
+        );
+        return res?.cards ?? MOCK_PUBLISHED_CARDS_SUMMARY;
+      } catch {
+        return MOCK_PUBLISHED_CARDS_SUMMARY;
+      }
     },
 
     // GET {{baseUrl}}/api/student/report-cards/{{reportCardId}}
-    getReportCard: async (reportCardId: number) => {
-      return {
-        id: reportCardId,
-        term: 'Term 1 2026/2027',
-        student: STUDENT_PROFILE,
-        grades: GRADES_DATA,
-        gpa: '3.85',
-      };
+    getReportCard: async (reportCardId: number): Promise<PublishedCard | null> => {
+      const fallback = MOCK_PUBLISHED_CARDS_DETAIL[reportCardId] ?? MOCK_PUBLISHED_CARDS_DETAIL[1];
+      try {
+        const res = await requestApi<PublishedCard>(
+          `/api/student/report-cards/${reportCardId}`,
+          'GET',
+          undefined,
+          fallback
+        );
+        return res ?? fallback;
+      } catch {
+        return fallback;
+      }
     },
 
     // GET {{baseUrl}}/api/student/report-cards/{{reportCardId}}/pdf
     downloadPdf: async (reportCardId: number) => {
       return {
-        downloadUrl: `https://learn.kreativaglobal.sch.id/api/student/report-cards/${reportCardId}/pdf`,
+        downloadUrl: `https://learn.kreativaglobal.sch.id/api/student/report-cards/${reportCardId}/pdf?download=1`,
       };
     },
   },
@@ -589,29 +832,49 @@ export const api = {
   habits: {
     // GET {{baseUrl}}/api/student/habits/week?weekStart={{weekStart}}
     getWeek: async (weekStart: string = '2026-09-07'): Promise<HabitGroup[]> => {
-      return HABIT_GROUPS_INITIAL;
+      return requestApi<HabitGroup[]>(
+        `/api/student/habits/week?weekStart=${encodeURIComponent(weekStart)}`,
+        'GET',
+        undefined,
+        HABIT_GROUPS_INITIAL
+      );
     },
 
     // GET {{baseUrl}}/api/student/habits/month?yearMonth={{yearMonth}}
     getMonth: async (yearMonth: string = '2026-09') => {
-      return {
-        yearMonth,
-        submittedDays: [5, 6, 8, 9, 12, 13, 14],
-        fullDaysCount: 7,
-        daysLoggedCount: 7,
-        points: 14,
-      };
+      return requestApi<any>(
+        `/api/student/habits/month?yearMonth=${encodeURIComponent(yearMonth)}`,
+        'GET',
+        undefined,
+        {
+          yearMonth,
+          submittedDays: [5, 6, 8, 9, 12, 13, 14],
+          fullDaysCount: 7,
+          daysLoggedCount: 7,
+          points: 14,
+        }
+      );
     },
 
     // POST {{baseUrl}}/api/student/habits/toggle
     toggleHabit: async (recordDate: string, categoryId: string | number, itemLabel: string, checked: boolean) => {
-      return {
-        success: true,
-        recordDate,
-        categoryId,
-        itemLabel,
-        checked,
-      };
+      return requestApi<any>(
+        '/api/student/habits/toggle',
+        'POST',
+        {
+          recordDate,
+          categoryId,
+          itemLabel,
+          checked,
+        },
+        {
+          success: true,
+          recordDate,
+          categoryId,
+          itemLabel,
+          checked,
+        }
+      );
     },
   },
 
@@ -621,11 +884,34 @@ export const api = {
   literacy: {
     // GET {{baseUrl}}/api/student/literacy?termId={{termId}}
     list: async (termId: number = 1): Promise<LiteracyEntry[]> => {
+      try {
+        const live = await requestApi<LiteracyEntry[]>(
+          `/api/student/literacy?termId=${termId}`,
+          'GET'
+        );
+        if (Array.isArray(live) && live.length > 0) {
+          inMemoryLiteracyEntries = live;
+          return live;
+        }
+      } catch (err) {
+        // Fallback to local
+      }
       return [...inMemoryLiteracyEntries];
     },
 
     // GET {{baseUrl}}/api/student/literacy/stats?termId={{termId}}
     getStats: async (termId: number = 1): Promise<LiteracyProgressStats> => {
+      try {
+        const liveStats = await requestApi<LiteracyProgressStats>(
+          `/api/student/literacy/stats?termId=${termId}`,
+          'GET'
+        );
+        if (liveStats && typeof liveStats.textsRead === 'number') {
+          return liveStats;
+        }
+      } catch (err) {
+        // Fallback to local
+      }
       const textsRead = inMemoryLiteracyEntries.length;
       const uniqueGenres = new Set(inMemoryLiteracyEntries.map((e) => e.genre).filter(Boolean)).size;
       const englishCount = inMemoryLiteracyEntries.filter((e) => e.language === 'English').length;
@@ -694,12 +980,30 @@ export const api = {
         vocabulary: payload.vocabulary || (payload.vocab ? payload.vocab.join(', ') : ''),
         createdAt: new Date().toISOString(),
       };
+
+      try {
+        const liveRes = await requestApi<any>('/api/student/literacy', 'POST', payload);
+        if (liveRes && liveRes.id) {
+          const entryWithServerId = { ...newEntry, ...liveRes, id: liveRes.id };
+          inMemoryLiteracyEntries = [entryWithServerId, ...inMemoryLiteracyEntries];
+          return entryWithServerId;
+        }
+      } catch (err) {
+        // Fallback to local
+      }
+
       inMemoryLiteracyEntries = [newEntry, ...inMemoryLiteracyEntries];
       return newEntry;
     },
 
     // PUT {{baseUrl}}/api/student/literacy/{{literacyId}}
     update: async (literacyId: string | number, payload: Partial<LiteracyEntry>): Promise<LiteracyEntry> => {
+      try {
+        await requestApi<any>(`/api/student/literacy/${literacyId}`, 'PUT', payload);
+      } catch (err) {
+        // Fallback
+      }
+
       const index = inMemoryLiteracyEntries.findIndex((e) => String(e.id) === String(literacyId));
       if (index === -1) {
         throw new Error(`Literacy entry with id ${literacyId} not found`);
@@ -716,6 +1020,12 @@ export const api = {
 
     // DELETE {{baseUrl}}/api/student/literacy/{{literacyId}}
     delete: async (literacyId: string | number): Promise<{ success: boolean; id: string | number }> => {
+      try {
+        await requestApi<any>(`/api/student/literacy/${literacyId}`, 'DELETE');
+      } catch (err) {
+        // Fallback
+      }
+
       inMemoryLiteracyEntries = inMemoryLiteracyEntries.filter((e) => String(e.id) !== String(literacyId));
       return { success: true, id: literacyId };
     },
