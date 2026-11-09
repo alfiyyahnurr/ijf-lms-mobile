@@ -86,7 +86,7 @@ const INJECTED_JAVASCRIPT = `
     authSent = true;
     if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
       window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'AUTH_SUCCESS',
+        type: 'AUTH_SUCCESS_LIVE',
         payload: payload || null
       }));
     }
@@ -407,16 +407,19 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'AUTH_SUCCESS_LIVE') {
-        const payload = data.payload;
+      const isLiveType = data.type === 'AUTH_SUCCESS_LIVE' || data.type === 'AUTH_SUCCESS';
+      const payload = data.payload;
+      const hasLivePayload = !!(payload && (payload.user || payload.profile || payload.userId || payload.studentId || payload.fullName));
+
+      if (isLiveType && hasLivePayload) {
         const profile = payload?.profile || {};
-        const userObj = payload?.user || {};
+        const userObj = payload?.user || payload || {};
         const rawEmail = (payload?.email || userObj.email || profile.email || '').toLowerCase().trim();
 
         const resolvedUser = {
-          userId: Number(profile.userId || payload?.userId || userObj.userId || 0),
+          userId: Number(profile.userId || payload?.userId || userObj.userId || userObj.id || 0),
           studentId: Number(profile.studentId || payload?.studentId || userObj.studentId || 0),
-          schoolId: Number(payload?.schoolId || userObj.schoolId || 6),
+          schoolId: Number(payload?.schoolId || userObj.schoolId || profile.schoolId || 6),
           fullName: String(profile.fullName || payload?.fullName || userObj.fullName || userObj.name || 'Student'),
           email: rawEmail,
           role: (payload?.role || userObj.role || 'student') as 'student',
@@ -433,8 +436,8 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
 
         authCompletedRef.current = true;
         onSuccess(resolvedUser);
-      } else if (data.type === 'AUTH_SUCCESS_FALLBACK' || data.type === 'AUTH_SUCCESS') {
-        console.log('[Auth Source] FALLBACK TRIGGERED (' + (data.error || 'Network error') + ')');
+      } else if (data.type === 'AUTH_SUCCESS_FALLBACK' || !hasLivePayload) {
+        console.log('[Auth Source] FALLBACK TRIGGERED (' + (data.error || 'No live payload') + ')');
         handleInstantSuccess(data.payload);
       } else if (data.type === 'AUTH_ERROR') {
         authCompletedRef.current = true;
