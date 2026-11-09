@@ -43,16 +43,16 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         `jwt_${userData?.userId || 2602}_${Date.now()}`;
 
       const profileData: any = {
-        userId: userData?.userId || 2602,
-        studentId: userData?.studentId || 2602,
+        userId: userData?.userId || 5243234,
+        studentId: userData?.studentId || 5243234,
         schoolId: userData?.schoolId || 6,
-        fullName: userData?.fullName || 'Student',
-        email: userData?.email || 'student@learn.kreativaglobal.sch.id',
+        fullName: userData?.fullName || 'Fatih',
+        email: userData?.email || 'alfiyyah@cnt.id',
         role: userData?.role || 'student',
-        schoolName: userData?.schoolName,
-        className: userData?.className,
-        house: userData?.house,
-        academicYearName: userData?.academicYearName,
+        schoolName: userData?.schoolName || 'Kreativa Global High School',
+        className: userData?.className || 'S4 Oxford',
+        house: userData?.house || 'Falcon',
+        academicYearName: userData?.academicYearName || '2026/2027',
       };
 
       // 1. Update student data context

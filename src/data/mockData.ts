@@ -21,18 +21,18 @@ import {
 } from '../types';
 
 export const STUDENT_PROFILE: StudentProfile = {
-  userId: 2602,
-  studentId: 2602,
+  userId: 5243234,
+  studentId: 5243234,
   schoolId: 6,
   fullName: "Fatih",
-  email: "fatih@learn.kreativaglobal.sch.id",
+  email: "alfiyyah@cnt.id",
   role: "student",
   schoolName: "Kreativa Global High School",
   schoolLevel: "high_school_igcse",
   classId: 99,
   className: "S4 Oxford",
   academicYearName: "Academic Year 7",
-  house: "Unassigned",
+  house: "Falcon",
   points: 14,
   disciplinePts: 0,
   literacyPts: 6,

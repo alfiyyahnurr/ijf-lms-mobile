@@ -231,15 +231,15 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
     const matched = rawEmail && REGISTERED_STUDENTS_DB[rawEmail] ? REGISTERED_STUDENTS_DB[rawEmail] : {};
 
     const resolvedUser = {
-      userId: userObj.userId || userObj.id || matched.userId || 2602,
-      studentId: userObj.studentId || detailedProfile.studentId || matched.studentId || 2602,
+      userId: userObj.userId || userObj.id || matched.userId || 5243234,
+      studentId: userObj.studentId || detailedProfile.studentId || matched.studentId || 5243234,
       schoolId: userObj.schoolId || matched.schoolId || 6,
-      fullName: userObj.fullName || userObj.name || detailedProfile.fullName || matched.fullName || 'Student',
+      fullName: userObj.fullName || userObj.name || detailedProfile.fullName || matched.fullName || 'Fatih',
       email: rawEmail || matched.email || 'alfiyyah@cnt.id',
       role: (userObj.role || 'student') as 'student',
       token: payload?.accessToken || payload?.token || undefined,
-      schoolName: detailedProfile.schoolName || userObj.schoolName || matched.schoolName || 'Kreativa Global School',
-      className: detailedProfile.className || userObj.className || matched.className || 'Grade 7-A (Cambridge Lower Secondary)',
+      schoolName: detailedProfile.schoolName || userObj.schoolName || matched.schoolName || 'Kreativa Global High School',
+      className: detailedProfile.className || userObj.className || matched.className || 'S4 Oxford',
       house: detailedProfile.houseName || userObj.house || matched.house || 'Falcon',
       academicYearName: detailedProfile.academicYear || userObj.academicYearName || '2026/2027',
     };
