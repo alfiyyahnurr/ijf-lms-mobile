@@ -10,6 +10,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "id.sch.kreativaglobal.lms",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

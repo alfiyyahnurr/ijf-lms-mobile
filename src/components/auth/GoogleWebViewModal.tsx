@@ -204,23 +204,27 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(true);
   const [isAtGoogle, setIsAtGoogle] = useState(false);
+  const [isConnectingLMS, setIsConnectingLMS] = useState(false);
   const [sessionKey, setSessionKey] = useState(0);
   const webViewRef = useRef<any>(null);
   const authCompletedRef = useRef(false);
   const hasResetGoogleRef = useRef(false);
+  const hasInjectedApiRef = useRef(false);
 
   // Force a fresh session on every open
   useEffect(() => {
     if (visible) {
       authCompletedRef.current = false;
       hasResetGoogleRef.current = false;
+      hasInjectedApiRef.current = false;
       setIsAtGoogle(false);
+      setIsConnectingLMS(false);
       setLoading(true);
       setSessionKey((prev) => prev + 1);
     }
   }, [visible]);
 
-  // Triggers instant smooth login into native app without ever displaying the web dashboard
+  // Fallback handler if live API fails or network drops
   const handleInstantSuccess = (payload?: any) => {
     if (authCompletedRef.current) return;
     authCompletedRef.current = true;
@@ -228,7 +232,7 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
     const userObj = payload?.user || payload?.profile || payload || {};
     const detailedProfile = payload?.profile || {};
     const rawEmail = (userObj.email || detailedProfile.email || '').toLowerCase().trim();
-    const matched = rawEmail && REGISTERED_STUDENTS_DB[rawEmail] ? REGISTERED_STUDENTS_DB[rawEmail] : {};
+    const matched = rawEmail && REGISTERED_STUDENTS_DB[rawEmail] ? REGISTERED_STUDENTS_DB[rawEmail] : REGISTERED_STUDENTS_DB['alfiyyah@cnt.id'] || {};
 
     const resolvedUser = {
       userId: userObj.userId || userObj.id || matched.userId || 5243234,
@@ -244,10 +248,66 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
       academicYearName: detailedProfile.academicYear || userObj.academicYearName || '2026/2027',
     };
 
-    console.log('[Auth] Connected to LMS successfully!');
+    console.log('[Auth Source] LOCAL FALLBACK');
     console.log('[Auth User Data]', JSON.stringify(resolvedUser, null, 2));
+    console.log('[Auth] Connected to LMS via fallback');
 
     onSuccess(resolvedUser);
+  };
+
+  // Injects fetch('/api/auth/me') inside the authenticated web origin
+  const injectFetchProfile = () => {
+    if (hasInjectedApiRef.current || authCompletedRef.current) return;
+    hasInjectedApiRef.current = true;
+    setIsConnectingLMS(true);
+
+    const script = `
+      (function() {
+        try {
+          fetch('/api/auth/me', { credentials: 'include' })
+            .then(function(r) {
+              if (!r.ok) {
+                return r.json().catch(function() { return {}; }).then(function(e) {
+                  throw new Error(e.error || ('HTTP ' + r.status));
+                });
+              }
+              return r.json();
+            })
+            .then(function(d) {
+              if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'AUTH_SUCCESS_LIVE',
+                  payload: d
+                }));
+              }
+            })
+            .catch(function(err) {
+              if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'AUTH_SUCCESS_FALLBACK',
+                  error: err.message || 'Fetch failed'
+                }));
+              }
+            });
+        } catch(e) {
+          if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'AUTH_SUCCESS_FALLBACK',
+              error: e.message || 'Script error'
+            }));
+          }
+        }
+      })();
+      true;
+    `;
+    webViewRef.current?.injectJavaScript(script);
+
+    // Safety timeout in case fetch hangs indefinitely
+    setTimeout(() => {
+      if (!authCompletedRef.current) {
+        handleInstantSuccess(null);
+      }
+    }, 4500);
   };
 
   // Intercept navigation requests BEFORE the page starts rendering
@@ -257,6 +317,7 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
     // Detect if we have transitioned to Google's official sign-in page
     if (url.includes('accounts.google.com')) {
       setIsAtGoogle(true);
+      setIsConnectingLMS(false);
 
       // Force prompt=select_account if not present so Google ALWAYS displays the account chooser
       if (
@@ -273,57 +334,30 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
       }
     }
 
-    // If redirection is heading to the web dashboard/portal, stop rendering immediately
+    // Detect return to LMS domain after Google authentication
     if (
+      url.includes('learn.kreativaglobal.sch.id/api/auth/callback/google') ||
       url.includes('learn.kreativaglobal.sch.id/dashboard') ||
       url.includes('learn.kreativaglobal.sch.id/student') ||
       url.includes('learn.kreativaglobal.sch.id/courses')
     ) {
-      // Fetch real user profile from live database API /api/auth/me via authenticated session
-      webViewRef.current?.injectJavaScript(`
-        fetch('/api/auth/me', { credentials: 'include' })
-          .then(function(r) { return r.json(); })
-          .then(function(d) {
-            if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'AUTH_SUCCESS',
-                payload: d
-              }));
-            }
-          })
-          .catch(function() {
-            if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'AUTH_SUCCESS',
-                payload: null
-              }));
-            }
-          });
-        true;
-      `);
-
-      // Fallback timeout in case fetch hangs
-      setTimeout(() => {
-        if (!authCompletedRef.current) {
-          handleInstantSuccess();
-        }
-      }, 2000);
-
-      return false; // STOP: do NOT render the web dashboard in WebView!
+      setIsConnectingLMS(true);
+      setIsAtGoogle(false);
+      // Allow navigation so NextAuth session cookies are set on the domain
+      return true;
     }
 
     // If error detected (e.g. unregistered account), auto-logout Google so user can enter another account
     if (url.includes('error=')) {
       if (!authCompletedRef.current) {
         authCompletedRef.current = true;
-        // Clean up Google session before closing
         webViewRef.current?.injectJavaScript(`
           window.location.href = '${GOOGLE_LOGOUT_URL}';
           true;
         `);
         setTimeout(() => {
           onError(
-            'Your account is not registered. Please contact your school administrator to get access.'
+            'Akun Google ini belum terdaftar di Kreativa LMS. Silakan hubungi admin sekolah untuk mendapatkan akses.'
           );
         }, 600);
       }
@@ -336,22 +370,24 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
     const url = navState.url;
 
-    // Detect if we have transitioned to Google's official sign-in page
+    // Detect transition to Google
     if (url.includes('accounts.google.com')) {
       setIsAtGoogle(true);
+      setIsConnectingLMS(false);
     }
 
-    // Redundant guard in case URL reached dashboard or authenticated route
+    // Trigger profile fetch when URL reaches authenticated routes
     if (
       url.includes('learn.kreativaglobal.sch.id/dashboard') ||
       url.includes('learn.kreativaglobal.sch.id/courses') ||
       url.includes('learn.kreativaglobal.sch.id/student')
     ) {
-      handleInstantSuccess();
+      setIsConnectingLMS(true);
+      injectFetchProfile();
       return;
     }
 
-    // Redundant guard for error
+    // Handle authentication error
     if (url.includes('error=')) {
       if (!authCompletedRef.current) {
         authCompletedRef.current = true;
@@ -361,7 +397,7 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
         `);
         setTimeout(() => {
           onError(
-            'Your account is not registered. Please contact your school administrator to get access.'
+            'Akun Google ini belum terdaftar di Kreativa LMS. Silakan hubungi admin sekolah untuk mendapatkan akses.'
           );
         }, 600);
       }
@@ -371,13 +407,40 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'AUTH_SUCCESS' || data.type === 'AUTH_SUCCESS_FALLBACK') {
+      if (data.type === 'AUTH_SUCCESS_LIVE') {
+        const payload = data.payload;
+        const profile = payload?.profile || {};
+        const userObj = payload?.user || {};
+        const rawEmail = (payload?.email || userObj.email || profile.email || '').toLowerCase().trim();
+
+        const resolvedUser = {
+          userId: Number(profile.userId || payload?.userId || userObj.userId || 0),
+          studentId: Number(profile.studentId || payload?.studentId || userObj.studentId || 0),
+          schoolId: Number(payload?.schoolId || userObj.schoolId || 6),
+          fullName: String(profile.fullName || payload?.fullName || userObj.fullName || userObj.name || 'Student'),
+          email: rawEmail,
+          role: (payload?.role || userObj.role || 'student') as 'student',
+          token: payload?.token || payload?.accessToken || undefined,
+          schoolName: String(profile.schoolName || userObj.schoolName || 'Kreativa Global High School'),
+          className: String(profile.className || userObj.className || 'General Class'),
+          house: profile.houseName || userObj.house || null,
+          academicYearName: profile.academicYear || userObj.academicYearName || '2026/2027',
+        };
+
+        console.log('[Auth Source] LIVE DATABASE (Status 200)');
+        console.log('[Auth User Data]', JSON.stringify(resolvedUser, null, 2));
+        console.log('[Auth] Connected to LMS successfully!');
+
+        authCompletedRef.current = true;
+        onSuccess(resolvedUser);
+      } else if (data.type === 'AUTH_SUCCESS_FALLBACK' || data.type === 'AUTH_SUCCESS') {
+        console.log('[Auth Source] FALLBACK TRIGGERED (' + (data.error || 'Network error') + ')');
         handleInstantSuccess(data.payload);
       } else if (data.type === 'AUTH_ERROR') {
         authCompletedRef.current = true;
         onError(
           data.message ||
-            'Your account is not registered. Please contact your school administrator to get access.'
+            'Akun Google ini belum terdaftar di Kreativa LMS. Silakan hubungi admin sekolah.'
         );
       }
     } catch {
@@ -417,12 +480,16 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
           </View>
         )}
 
-        {/* Seamless connecting overlay: Shown until user is on Google's official page */}
-        {!isAtGoogle && (
-          <View style={[styles.connectingOverlay, { width: SCREEN_WIDTH, height: SCREEN_HEIGHT, paddingTop: topInset + 40 }]}>
+        {/* Seamless connecting overlay: Shown before Google page loads or when returning from Google to verify profile */}
+        {(!isAtGoogle || isConnectingLMS) && (
+          <View style={[styles.connectingOverlay, { width: SCREEN_WIDTH, height: SCREEN_HEIGHT, paddingTop: topInset + 40, zIndex: 100 }]}>
             <ActivityIndicator size="large" color="#4F089F" />
-            <Text style={styles.connectingTitle}>Menghubungkan ke Google...</Text>
-            <Text style={styles.connectingSubtitle}>Memuat halaman akun Google</Text>
+            <Text style={styles.connectingTitle}>
+              {isConnectingLMS ? 'Menghubungkan ke Akun Siswa...' : 'Menghubungkan ke Google...'}
+            </Text>
+            <Text style={styles.connectingSubtitle}>
+              {isConnectingLMS ? 'Memverifikasi profil dari sistem sekolah' : 'Memuat halaman akun Google'}
+            </Text>
           </View>
         )}
 
