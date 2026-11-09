@@ -203,24 +203,30 @@ export const HabitsScreen: React.FC = () => {
   }, [viewYear, viewMonth, REAL_TODAY_YEAR, REAL_TODAY_MONTH]);
 
   const handlePrevMonth = () => {
-    if (viewMonth === 0) {
-      setViewMonth(11);
-      setViewYear((y) => y - 1);
-    } else {
-      setViewMonth((m) => m - 1);
-    }
-    setSelectedDate(1);
+    const prevYear = viewMonth === 0 ? viewYear - 1 : viewYear;
+    const prevMonth = viewMonth === 0 ? 11 : viewMonth - 1;
+    setViewYear(prevYear);
+    setViewMonth(prevMonth);
+
+    // Automatically pick the last day of the past month (matching Web LMS pickDefaultDate)
+    const lastDay = new Date(prevYear, prevMonth + 1, 0).getDate();
+    setSelectedDate(lastDay);
   };
 
   const handleNextMonth = () => {
     if (isCurrentMonthOrFuture) return;
-    if (viewMonth === 11) {
-      setViewMonth(0);
-      setViewYear((y) => y + 1);
+    const nextYear = viewMonth === 11 ? viewYear + 1 : viewYear;
+    const nextMonth = viewMonth === 11 ? 0 : viewMonth + 1;
+    setViewYear(nextYear);
+    setViewMonth(nextMonth);
+
+    // If returning to current month, pick today; otherwise pick last day of that month
+    if (nextYear === REAL_TODAY_YEAR && nextMonth === REAL_TODAY_MONTH) {
+      setSelectedDate(REAL_TODAY_DATE);
     } else {
-      setViewMonth((m) => m + 1);
+      const lastDay = new Date(nextYear, nextMonth + 1, 0).getDate();
+      setSelectedDate(lastDay);
     }
-    setSelectedDate(1);
   };
 
   // Compute Daily Checklist Stats
