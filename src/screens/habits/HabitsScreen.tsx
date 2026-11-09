@@ -10,6 +10,28 @@ import AppHeader from '../../components/navigation/AppHeader';
 import PointsToast from '../../components/common/PointsToast';
 import { useStudentData, formatDateKey } from '../../context/StudentDataContext';
 
+// SEC_HS Official Design Tokens from Web LMS (lib/sec-hs-theme.ts)
+const SEC_HS = {
+  navy: '#1B2D4F',
+  navyMid: '#2C4370',
+  navyBg: '#EEF2F8',
+  warm: '#F7F3EC',
+  cream: '#FAFAF8',
+  border: '#E5E0D8',
+  muted: '#78716C',
+  white: '#FFFFFF',
+  text: '#1C1917',
+  green: '#2E7D52',
+  greenLight: '#E3F5EC',
+  greenDark: '#1E5C3A',
+  blue: '#2563EB',
+  blueLight: '#DBEAFE',
+  blueDark: '#1E40AF',
+  red: '#B91C1C',
+  redLight: '#FEF2F2',
+  redBorder: '#FEE2E2',
+} as const;
+
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
@@ -52,12 +74,13 @@ export const HabitsScreen: React.FC = () => {
     isDateSubmitted,
     toastList,
     dismissToast,
+    showToast,
   } = useStudentData();
 
   // Real-time system calendar base
   const now = useMemo(() => new Date(), []);
   const REAL_TODAY_YEAR = now.getFullYear();
-  const REAL_TODAY_MONTH = now.getMonth(); // 0-indexed (0=Jan..9=Oct)
+  const REAL_TODAY_MONTH = now.getMonth(); // 0-indexed (0=Jan..11=Dec)
   const REAL_TODAY_DATE = now.getDate();
 
   const [activeTab, setActiveTab] = useState<'daily' | 'recap' | 'leaderboard'>('daily');
@@ -73,13 +96,11 @@ export const HabitsScreen: React.FC = () => {
     setSelectedDate(today.getDate());
   }, []);
 
-  // 1. "Pindah Bagian": Reset calendar automatically when switching between Daily, Recap, or Leaderboard
   const handleTabChange = (newTab: 'daily' | 'recap' | 'leaderboard') => {
     setActiveTab(newTab);
     resetCalendarToLatest();
   };
 
-  // 2. "Pindah Halaman": Reset calendar automatically when returning to Habits screen from another screen
   useFocusEffect(
     useCallback(() => {
       resetCalendarToLatest();
@@ -91,6 +112,15 @@ export const HabitsScreen: React.FC = () => {
     () => formatDateKey(viewYear, viewMonth, selectedDate),
     [viewYear, viewMonth, selectedDate]
   );
+
+  const todayKey = useMemo(
+    () => formatDateKey(REAL_TODAY_YEAR, REAL_TODAY_MONTH, REAL_TODAY_DATE),
+    [REAL_TODAY_YEAR, REAL_TODAY_MONTH, REAL_TODAY_DATE]
+  );
+
+  const canEdit = selectedDateKey <= todayKey;
+  const isPastDay = selectedDateKey < todayKey;
+  const isFutureDate = selectedDateKey > todayKey;
 
   // Current active date's habit groups from unified context
   const currentHabitGroups: HabitGroup[] = useMemo(() => {
@@ -174,8 +204,12 @@ export const HabitsScreen: React.FC = () => {
     [currentHabitGroups]
   );
 
-  // Toggle habit checkbox with instant auto-save, leaderboard update & toast trigger
+  // Toggle habit with validation for future dates
   const handleToggleHabit = (groupId: string, itemId: string) => {
+    if (!canEdit) {
+      showToast('Cannot record habits for future dates. Please select today or a past date.');
+      return;
+    }
     contextToggleHabit(selectedDateKey, groupId, itemId);
   };
 
@@ -184,10 +218,7 @@ export const HabitsScreen: React.FC = () => {
   const daysInViewMonth = useMemo(() => new Date(viewYear, viewMonth + 1, 0).getDate(), [viewYear, viewMonth]);
   const totalElapsedDays = isViewingCurrentMonth ? REAL_TODAY_DATE : daysInViewMonth;
 
-  // RECAP LOGIC:
-  // - Category counts if AT LEAST ONE item in that category is checked (as requested)
-  // - Full day = >= 5 categories checked (2 pts each)
-  // - Days logged = at least 1 item checked on that day
+  // Recap calculations matching official Web LMS rules
   const recapStats = useMemo(() => {
     let fullDaysCount = 0;
     let daysLoggedCount = 0;
@@ -212,7 +243,6 @@ export const HabitsScreen: React.FC = () => {
         daysLoggedCount++;
       }
 
-      // Count categories that have at least 1 item checked on this day
       let categoriesActiveToday = 0;
       for (const g of groups) {
         const hasCheckInGroup = g.items.some((i) => i.checked);
@@ -240,19 +270,17 @@ export const HabitsScreen: React.FC = () => {
     };
   }, [habitsByDate, viewYear, viewMonth, totalElapsedDays]);
 
-  const isPastDay = isViewingCurrentMonth
-    ? selectedDate < REAL_TODAY_DATE
-    : (viewYear < REAL_TODAY_YEAR || (viewYear === REAL_TODAY_YEAR && viewMonth < REAL_TODAY_MONTH));
-
   const dateSubLabel = isViewingCurrentMonth && selectedDate === REAL_TODAY_DATE
     ? 'today'
     : selectedDateKey;
+
+  const trackLabel = 'Senior';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <AppHeader title="Habits" />
 
-      {/* Floating Points Toast Notifications matching Screenshot 1 */}
+      {/* Floating Points Toast Notifications */}
       {toastList.length > 0 && (
         <View style={styles.toastContainer} pointerEvents="box-none">
           {toastList.map((toast) => (
@@ -267,12 +295,12 @@ export const HabitsScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Page Header Title matching Screenshots */}
+        {/* Page Header Title matching Web LMS (h1 fontSize: 18, fontWeight: 700, color: SEC_HS.navy) */}
         <View style={styles.headerBlock}>
           <Text style={styles.pageTitle}>Daily habit checklist</Text>
         </View>
 
-        {/* Segmented Pill Tabs matching Screenshots */}
+        {/* Segmented Tabs (3 Tab: Daily, Recap, Leaderboard) */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={[styles.tabBtn, activeTab === 'daily' && styles.tabBtnActive]}
@@ -306,11 +334,11 @@ export const HabitsScreen: React.FC = () => {
         </View>
 
         {/* ==============================================================
-            TAB 1: DAILY (Exact match to Screenshot 2)
+            TAB 1: DAILY
             ============================================================== */}
         {activeTab === 'daily' && (
           <View style={styles.tabContentWrap}>
-            {/* 1. Monthly Calendar Card matching Screenshot 2 */}
+            {/* 1. Monthly Calendar Card */}
             <View style={styles.calendarCard}>
               {/* Month Header Navigation */}
               <View style={styles.monthNavRow}>
@@ -319,7 +347,7 @@ export const HabitsScreen: React.FC = () => {
                   onPress={handlePrevMonth}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="chevron-back" size={18} color="#64748B" />
+                  <Ionicons name="chevron-back" size={16} color={SEC_HS.muted} />
                 </TouchableOpacity>
 
                 <Text style={styles.monthTitleText}>
@@ -334,8 +362,8 @@ export const HabitsScreen: React.FC = () => {
                 >
                   <Ionicons
                     name="chevron-forward"
-                    size={18}
-                    color={isCurrentMonthOrFuture ? '#CBD5E1' : '#64748B'}
+                    size={16}
+                    color={isCurrentMonthOrFuture ? 'rgba(28,25,23,0.28)' : SEC_HS.muted}
                   />
                 </TouchableOpacity>
               </View>
@@ -349,7 +377,7 @@ export const HabitsScreen: React.FC = () => {
                 ))}
               </View>
 
-              {/* Real-time Dynamic Calendar Days Grid matching Screenshot 2 */}
+              {/* Dynamic Calendar Days Grid */}
               <View style={styles.daysGrid}>
                 {monthWeeks.map((week, wIdx) => (
                   <View key={`week-${wIdx}`} style={styles.weekRow}>
@@ -359,14 +387,25 @@ export const HabitsScreen: React.FC = () => {
                       }
 
                       const isSelected = dateNum === selectedDate;
-                      const isToday = isViewingCurrentMonth && dateNum === REAL_TODAY_DATE;
                       const isFuture = isViewingCurrentMonth
                         ? dateNum > REAL_TODAY_DATE
                         : (viewYear > REAL_TODAY_YEAR || (viewYear === REAL_TODAY_YEAR && viewMonth > REAL_TODAY_MONTH));
                       const dKey = formatDateKey(viewYear, viewMonth, dateNum);
                       const hasSubmission = isDateSubmitted(dKey);
 
-                      // State 1: Selected date (Screenshot 2: e.g. 22)
+                      // State 1: Future locked
+                      if (isFuture) {
+                        return (
+                          <View key={`date-${dateNum}`} style={styles.dayCellWrapper}>
+                            <View style={styles.dayCellFuture}>
+                              <Text style={styles.dayTextFuture}>{dateNum}</Text>
+                              <View style={styles.dotPlaceholder} />
+                            </View>
+                          </View>
+                        );
+                      }
+
+                      // State 2: Selected date
                       if (isSelected) {
                         return (
                           <TouchableOpacity
@@ -377,13 +416,17 @@ export const HabitsScreen: React.FC = () => {
                           >
                             <View style={styles.dayCellSelected}>
                               <Text style={styles.dayTextSelected}>{dateNum}</Text>
-                              {hasSubmission && <View style={styles.submissionDot} />}
+                              {hasSubmission ? (
+                                <View style={styles.submissionDot} />
+                              ) : (
+                                <View style={styles.dotPlaceholder} />
+                              )}
                             </View>
                           </TouchableOpacity>
                         );
                       }
 
-                      // State 2: Has submission (Screenshot 2: e.g. 14)
+                      // State 3: Has submission
                       if (hasSubmission) {
                         return (
                           <TouchableOpacity
@@ -400,34 +443,7 @@ export const HabitsScreen: React.FC = () => {
                         );
                       }
 
-                      // State 3: Future locked (Screenshot 2: e.g. 23..31)
-                      if (isFuture) {
-                        return (
-                          <View key={`date-${dateNum}`} style={styles.dayCellWrapper}>
-                            <View style={styles.dayCellFuture}>
-                              <Text style={styles.dayTextFuture}>{dateNum}</Text>
-                            </View>
-                          </View>
-                        );
-                      }
-
-                      // State 4: Today unselected, unsubmitted
-                      if (isToday) {
-                        return (
-                          <TouchableOpacity
-                            key={`date-${dateNum}`}
-                            style={styles.dayCellWrapper}
-                            onPress={() => setSelectedDate(dateNum)}
-                            activeOpacity={0.8}
-                          >
-                            <View style={styles.dayCellToday}>
-                              <Text style={styles.dayTextToday}>{dateNum}</Text>
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      }
-
-                      // State 5: Past date not filled (Screenshot 2: e.g. 1..13, 15..21)
+                      // State 4: Past not filled
                       return (
                         <TouchableOpacity
                           key={`date-${dateNum}`}
@@ -437,6 +453,7 @@ export const HabitsScreen: React.FC = () => {
                         >
                           <View style={styles.dayCellPast}>
                             <Text style={styles.dayTextPast}>{dateNum}</Text>
+                            <View style={styles.dotPlaceholder} />
                           </View>
                         </TouchableOpacity>
                       );
@@ -445,7 +462,7 @@ export const HabitsScreen: React.FC = () => {
                 ))}
               </View>
 
-              {/* Calendar Legend matching Screenshot 2 */}
+              {/* Calendar Legend matching Web LMS */}
               <View style={styles.legendDivider} />
               <Text style={styles.legendTitle}>Calendar legend</Text>
               <View style={styles.legendGrid}>
@@ -475,7 +492,17 @@ export const HabitsScreen: React.FC = () => {
               </View>
             </View>
 
-            {/* 2. Checklist Progress Bar */}
+            {/* Validation Banner if Future Date is Selected */}
+            {isFutureDate && (
+              <View style={styles.validationWarningBanner}>
+                <Ionicons name="information-circle-outline" size={16} color={SEC_HS.red} />
+                <Text style={styles.validationWarningText}>
+                  Cannot record habits for future dates. Please select today or a past date.
+                </Text>
+              </View>
+            )}
+
+            {/* 2. Checklist Progress Summary */}
             <View style={styles.checklistProgressContainer}>
               <Text style={styles.checklistProgressLabel}>Checklist progress</Text>
               <Text style={styles.checklistProgressBigText}>
@@ -485,64 +512,75 @@ export const HabitsScreen: React.FC = () => {
                 Checks save automatically. You can still edit past days.{isPastDay ? ' You are editing a past day.' : ''}
               </Text>
               <Text style={styles.checklistProgressSubMeta}>
-                {activeGroupsCount}/7 habit groups · Senior track · {dateSubLabel}
+                {activeGroupsCount}/7 habit groups · {trackLabel} track · {dateSubLabel}
               </Text>
             </View>
 
-            {/* 3. 7 Habit Group Cards matching Screenshot 1 */}
-            {currentHabitGroups.map((group) => {
-              const isGroupActive = group.items.some((i) => i.checked);
-              return (
-                <View
-                  key={group.id}
-                  style={[styles.habitCard, isGroupActive && styles.habitCardActive]}
-                >
-                  <Text
-                    style={[
-                      styles.habitCardTitle,
-                      isGroupActive && styles.habitCardTitleCompleted,
-                    ]}
+            {/* 3. 7 Habit Group Cards (1 Column on Mobile View) */}
+            <View
+              style={[
+                styles.habitListWrap,
+                !canEdit && styles.habitListDisabled,
+              ]}
+              pointerEvents={canEdit ? 'auto' : 'none'}
+            >
+              {currentHabitGroups.map((group) => {
+                const isGroupActive = group.items.some((i) => i.checked);
+                return (
+                  <View
+                    key={group.id}
+                    style={[styles.habitCard, isGroupActive && styles.habitCardActive]}
                   >
-                    {group.title}{isGroupActive ? ' ✓' : ''}
-                  </Text>
-                  {group.items.map((item) => {
-                    const isChecked = item.checked;
-                    return (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={[
-                          styles.habitItemRow,
-                          isChecked && styles.habitItemRowChecked,
-                        ]}
-                        onPress={() => handleToggleHabit(group.id, item.id)}
-                        activeOpacity={0.7}
-                      >
-                        <Text
-                          style={[
-                            styles.habitItemLabel,
-                            isChecked && styles.habitItemLabelChecked,
-                          ]}
-                        >
-                          {item.text}
-                        </Text>
-                        <View
-                          style={[
-                            styles.circularCheck,
-                            isChecked && styles.circularCheckActive,
-                          ]}
-                        >
-                          {isChecked && (
-                            <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              );
-            })}
+                    <Text
+                      style={[
+                        styles.habitCardTitle,
+                        isGroupActive && styles.habitCardTitleCompleted,
+                      ]}
+                    >
+                      {group.title}{isGroupActive ? ' ✓' : ''}
+                    </Text>
+                    <View style={styles.habitCardItemsCol}>
+                      {group.items.map((item) => {
+                        const isChecked = item.checked;
+                        return (
+                          <TouchableOpacity
+                            key={item.id}
+                            style={[
+                              styles.habitItemRow,
+                              isChecked && styles.habitItemRowChecked,
+                            ]}
+                            onPress={() => handleToggleHabit(group.id, item.id)}
+                            activeOpacity={0.7}
+                            disabled={!canEdit}
+                          >
+                            <Text
+                              style={[
+                                styles.habitItemLabel,
+                                isChecked && styles.habitItemLabelChecked,
+                              ]}
+                            >
+                              {item.text}
+                            </Text>
+                            <View
+                              style={[
+                                styles.circularCheck,
+                                isChecked && styles.circularCheckActive,
+                              ]}
+                            >
+                              {isChecked && (
+                                <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+                              )}
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
 
-            {/* 4. Footer Disclaimer matching Screenshots */}
+            {/* 4. Footer Disclaimer */}
             <Text style={styles.footerDisclaimer}>
               Based on G7KAIH (Gerakan 7 Kebiasaan Anak Indonesia Hebat). Full-day points when ≥5 habit groups are checked.
             </Text>
@@ -550,11 +588,11 @@ export const HabitsScreen: React.FC = () => {
         )}
 
         {/* ==============================================================
-            TAB 2: RECAP (Matching Latest Web Screenshot)
+            TAB 2: RECAP
             ============================================================== */}
         {activeTab === 'recap' && (
           <View style={styles.tabContentWrap}>
-            {/* Card 1: Month summary matching latest web screenshot */}
+            {/* Card 1: Month summary */}
             <View style={styles.recapSummaryCard}>
               <Text style={styles.recapSummaryTitle}>
                 {MONTH_NAMES[viewMonth]} {viewYear} summary
@@ -584,50 +622,52 @@ export const HabitsScreen: React.FC = () => {
               </Text>
             </View>
 
-            {/* Card 2: Days per habit group matching latest web screenshot */}
+            {/* Card 2: Days per habit group */}
             <View style={styles.recapGroupsCard}>
               <Text style={styles.recapGroupsTitle}>Days per habit group</Text>
 
-              {HABIT_GROUPS_INITIAL.map((group) => {
-                const completedDays = recapStats.groupCompletedDays[group.id] || 0;
-                const progressRatio = totalElapsedDays > 0 ? Math.min(1, completedDays / totalElapsedDays) : 0;
+              <View style={styles.recapGroupsList}>
+                {HABIT_GROUPS_INITIAL.map((group) => {
+                  const completedDays = recapStats.groupCompletedDays[group.id] || 0;
+                  const progressRatio = totalElapsedDays > 0 ? Math.min(1, completedDays / totalElapsedDays) : 0;
 
-                return (
-                  <View key={group.id} style={styles.recapGroupRow}>
-                    <View style={styles.recapGroupHeader}>
-                      <Text style={styles.recapGroupName}>{group.title}</Text>
-                      <Text style={styles.recapGroupScore}>
-                        {completedDays}/{totalElapsedDays}
-                      </Text>
+                  return (
+                    <View key={group.id} style={styles.recapGroupRow}>
+                      <View style={styles.recapGroupHeader}>
+                        <Text style={styles.recapGroupName}>{group.title}</Text>
+                        <Text style={styles.recapGroupScore}>
+                          {completedDays}/{totalElapsedDays}
+                        </Text>
+                      </View>
+                      <View style={styles.recapProgressBarTrack}>
+                        <View
+                          style={[
+                            styles.recapProgressBarFill,
+                            { width: `${Math.min(100, progressRatio * 100)}%` },
+                          ]}
+                        />
+                      </View>
                     </View>
-                    <View style={styles.recapProgressBarTrack}>
-                      <View
-                        style={[
-                          styles.recapProgressBarFill,
-                          { width: `${Math.min(100, progressRatio * 100)}%` },
-                        ]}
-                      />
-                    </View>
-                  </View>
-                );
-              })}
+                  );
+                })}
+              </View>
             </View>
 
-            {/* Month Navigation Buttons matching Screenshot 3 */}
+            {/* Month Navigation Outline Buttons matching Web LMS */}
             <View style={styles.monthNavButtonsRow}>
               <TouchableOpacity
-                style={styles.monthNavPillBtn}
+                style={styles.monthNavOutlineBtn}
                 onPress={handlePrevMonth}
                 activeOpacity={0.7}
               >
-                <Ionicons name="chevron-back" size={16} color="#0F172A" />
-                <Text style={styles.monthNavPillBtnText}>Prev month</Text>
+                <Ionicons name="chevron-back" size={15} color={SEC_HS.navy} />
+                <Text style={styles.monthNavOutlineBtnText}>Prev month</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
-                  styles.monthNavPillBtn,
-                  isCurrentMonthOrFuture && styles.monthNavPillBtnDisabled,
+                  styles.monthNavOutlineBtn,
+                  isCurrentMonthOrFuture && styles.monthNavOutlineBtnDisabled,
                 ]}
                 onPress={handleNextMonth}
                 activeOpacity={0.7}
@@ -635,16 +675,16 @@ export const HabitsScreen: React.FC = () => {
               >
                 <Text
                   style={[
-                    styles.monthNavPillBtnText,
-                    isCurrentMonthOrFuture && styles.monthNavPillBtnTextDisabled,
+                    styles.monthNavOutlineBtnText,
+                    isCurrentMonthOrFuture && styles.monthNavOutlineBtnTextDisabled,
                   ]}
                 >
                   Next month
                 </Text>
                 <Ionicons
                   name="chevron-forward"
-                  size={16}
-                  color={isCurrentMonthOrFuture ? '#94A3B8' : '#0F172A'}
+                  size={15}
+                  color={isCurrentMonthOrFuture ? 'rgba(28,25,23,0.35)' : SEC_HS.navy}
                 />
               </TouchableOpacity>
             </View>
@@ -652,7 +692,7 @@ export const HabitsScreen: React.FC = () => {
         )}
 
         {/* ==============================================================
-            TAB 3: LEADERBOARD (Exact match to Screenshot 1)
+            TAB 3: LEADERBOARD
             ============================================================== */}
         {activeTab === 'leaderboard' && (
           <View style={styles.tabContentWrap}>
@@ -661,7 +701,9 @@ export const HabitsScreen: React.FC = () => {
               <View style={styles.classLeaderboardHeader}>
                 <View>
                   <Text style={styles.classLeaderboardTitle}>Class habits points</Text>
-                  <Text style={styles.classLeaderboardSubtitle}>S4 Oxford</Text>
+                  <Text style={styles.classLeaderboardSubtitle}>
+                    {studentProfile.className || 'S4 Oxford'}
+                  </Text>
                 </View>
 
                 <TouchableOpacity
@@ -672,31 +714,32 @@ export const HabitsScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* Class Ranking List matching Screenshot 3 */}
+              {/* Class Ranking List matching Web LMS */}
               <View style={styles.rankList}>
-                {classHabitsLeaderboard.slice(0, 8).map((student) => {
+                {classHabitsLeaderboard.slice(0, 15).map((student, idx) => {
                   const hPoints = student.isCurrent ? studentProfile.habitsPts : (student.habitsPts ?? student.points ?? 0);
+                  const isMe = student.isCurrent;
                   return (
                     <View
-                      key={student.name}
-                      style={[styles.rankRow, student.isCurrent && styles.rankRowCurrentUser]}
+                      key={student.name || idx}
+                      style={[styles.rankRow, isMe && styles.rankRowCurrentUser]}
                     >
                       <Text
                         style={[
                           styles.rankNumberText,
-                          student.isCurrent && styles.rankNumberTextCurrentUser,
+                          isMe && styles.rankNumberTextCurrentUser,
                         ]}
                       >
-                        {student.rank}
+                        {idx + 1}
                       </Text>
                       <Text
                         style={[
                           styles.studentNameText,
-                          student.isCurrent && styles.studentNameTextCurrentUser,
+                          isMe && styles.studentNameTextCurrentUser,
                         ]}
                         numberOfLines={1}
                       >
-                        {student.name}
+                        {student.name}{isMe ? ' (you)' : ''}
                       </Text>
                       <Text style={styles.pointsTextWrap}>
                         <Text style={styles.pointsLetterH}>H </Text>
@@ -719,7 +762,7 @@ export const HabitsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
   },
   scroll: {
     flex: 1,
@@ -727,7 +770,10 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 108,
+    paddingBottom: 40,
+    maxWidth: 680,
+    alignSelf: 'center',
+    width: '100%',
   },
   toastContainer: {
     position: 'absolute',
@@ -740,93 +786,100 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     fontFamily: FONTS.title,
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: 18,
+    lineHeight: 24,
     fontWeight: '700',
-    color: '#0F172A',
+    color: SEC_HS.navy,
     letterSpacing: 0,
   },
-  /* Segmented Pill Tabs */
+  /* Segmented Tabs (3 Tab: Daily, Recap, Leaderboard) */
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F8F5EE',
-    borderRadius: 14,
+    backgroundColor: SEC_HS.warm,
+    borderRadius: 12,
     padding: 4,
-    marginBottom: 16,
+    marginBottom: 14,
+    gap: 4,
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 10,
+    backgroundColor: 'transparent',
   },
   tabBtnActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: SEC_HS.blue,
   },
   tabBtnText: {
-    fontFamily: FONTS.medium,
-    fontSize: 14,
-    color: '#475569',
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
+    fontWeight: '600',
+    color: SEC_HS.navy,
   },
   tabBtnTextActive: {
-    fontFamily: FONTS.bold,
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '600',
   },
   tabContentWrap: {
     gap: 12,
   },
-  /* Monthly Calendar Card matching Screenshot 2 */
+  /* Monthly Calendar Card */
   calendarCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    backgroundColor: SEC_HS.white,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 20,
-    marginBottom: 16,
+    borderColor: SEC_HS.border,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
+    marginBottom: 14,
     ...SHADOWS.sm,
   },
   monthNavRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   navArrowBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: SEC_HS.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: SEC_HS.white,
   },
   navArrowBtnDisabled: {
-    opacity: 0.4,
+    opacity: 0.35,
   },
   monthTitleText: {
-    fontFamily: FONTS.title,
-    fontSize: 19,
+    fontFamily: FONTS.bold,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: SEC_HS.navy,
   },
   weekdaysRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 6,
   },
   weekdayText: {
-    fontFamily: FONTS.medium,
-    fontSize: 13,
-    color: '#475569',
+    fontFamily: FONTS.semiBold,
+    fontSize: 11,
+    fontWeight: '600',
+    color: SEC_HS.muted,
     width: '14.28%',
     textAlign: 'center',
+    paddingBottom: 4,
   },
   daysGrid: {
-    gap: 8,
-    marginBottom: 8,
+    gap: 4,
+    marginBottom: 6,
   },
   weekRow: {
     flexDirection: 'row',
@@ -837,393 +890,425 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  /* State 1: Selected date (Screenshot 2: e.g. 22) */
   dayCellSelected: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#2563EB',
-    backgroundColor: '#DBEAFE',
+    borderColor: SEC_HS.blue,
+    backgroundColor: SEC_HS.blueLight,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: 2,
   },
   dayTextSelected: {
     fontFamily: FONTS.bold,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#1D4ED8',
+    color: SEC_HS.blueDark,
   },
-  /* State 2: Has submission (Screenshot 2: e.g. 14) */
   dayCellSubmission: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#DCFCE7',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: SEC_HS.greenLight,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: 2,
   },
   dayTextSubmission: {
-    fontFamily: FONTS.bold,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#166534',
+    fontFamily: FONTS.semiBold,
+    fontSize: 13,
+    fontWeight: '600',
+    color: SEC_HS.greenDark,
   },
-  /* State 3: Future locked (Screenshot 2: e.g. 23..31) */
   dayCellFuture: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: 2,
   },
   dayTextFuture: {
-    fontFamily: FONTS.regular,
-    fontSize: 13.5,
-    color: '#94A3B8',
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(28,25,23,0.28)',
   },
-  /* State 4: Today unselected unsubmitted */
-  dayCellToday: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayTextToday: {
-    fontFamily: FONTS.bold,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  /* State 5: Past not filled (Screenshot 2: e.g. 1..13, 15..21) */
   dayCellPast: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: SEC_HS.border,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
+    paddingTop: 2,
   },
   dayTextPast: {
     fontFamily: FONTS.medium,
-    fontSize: 13.5,
-    color: '#475569',
+    fontSize: 13,
+    fontWeight: '500',
+    color: SEC_HS.navy,
   },
   submissionDot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: '#16A34A',
+    backgroundColor: SEC_HS.green,
+    marginTop: 2,
+  },
+  dotPlaceholder: {
+    width: 5,
+    height: 5,
     marginTop: 2,
   },
   legendDivider: {
     height: 1,
-    backgroundColor: '#F5F3EF',
-    marginVertical: 14,
-  },
-  legendTitle: {
-    fontFamily: FONTS.title,
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#475569',
+    backgroundColor: SEC_HS.border,
+    marginTop: 10,
     marginBottom: 10,
   },
+  legendTitle: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 11,
+    fontWeight: '600',
+    color: SEC_HS.muted,
+    marginBottom: 8,
+  },
   legendGrid: {
-    gap: 8,
+    gap: 6,
   },
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     flex: 1,
   },
   legendBoxSelected: {
-    width: 18,
-    height: 18,
+    width: 16,
+    height: 16,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#2563EB',
-    backgroundColor: '#DBEAFE',
+    borderColor: SEC_HS.blue,
+    backgroundColor: SEC_HS.blueLight,
   },
   legendBoxSubmission: {
-    width: 18,
-    height: 18,
+    width: 16,
+    height: 16,
     borderRadius: 4,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: SEC_HS.greenLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   legendInnerDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#16A34A',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: SEC_HS.green,
   },
   legendBoxPast: {
-    width: 18,
-    height: 18,
+    width: 16,
+    height: 16,
     borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderWidth: 1.5,
+    borderColor: SEC_HS.border,
     borderStyle: 'dashed',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   legendTextFutureNum: {
-    fontFamily: FONTS.regular,
-    fontSize: 13,
-    color: '#94A3B8',
-    width: 18,
+    fontFamily: FONTS.semiBold,
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(28,25,23,0.28)',
+    width: 16,
     textAlign: 'center',
   },
   legendLabel: {
     fontFamily: FONTS.regular,
+    fontSize: 11,
+    color: SEC_HS.muted,
+  },
+  /* Validation warning banner */
+  validationWarningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: SEC_HS.redLight,
+    borderWidth: 1,
+    borderColor: SEC_HS.redBorder,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 4,
+  },
+  validationWarningText: {
+    fontFamily: FONTS.medium,
     fontSize: 12,
-    color: '#475569',
+    color: SEC_HS.red,
+    flex: 1,
   },
   /* Checklist Progress Summary */
   checklistProgressContainer: {
-    marginBottom: 8,
+    marginBottom: 14,
+    paddingHorizontal: 2,
   },
   checklistProgressLabel: {
-    fontFamily: FONTS.medium,
-    fontSize: 13,
-    color: '#64748B',
-    marginBottom: 4,
+    fontFamily: FONTS.semiBold,
+    fontSize: 12,
+    fontWeight: '600',
+    color: SEC_HS.muted,
+    marginBottom: 2,
   },
   checklistProgressBigText: {
-    fontFamily: FONTS.title,
-    fontSize: 28,
+    fontFamily: FONTS.bold,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.5,
+    color: SEC_HS.navy,
+    letterSpacing: -0.4,
     marginBottom: 4,
   },
   checklistProgressAutoSaveText: {
     fontFamily: FONTS.regular,
-    fontSize: 13,
-    color: '#475569',
-    marginBottom: 2,
+    fontSize: 12,
+    color: SEC_HS.muted,
+    lineHeight: 18,
   },
   checklistProgressSubMeta: {
     fontFamily: FONTS.regular,
-    fontSize: 12.5,
-    color: '#64748B',
+    fontSize: 11.5,
+    color: SEC_HS.muted,
+    marginTop: 4,
   },
-  /* Habit Group Card */
+  /* Habit Group Cards */
+  habitListWrap: {
+    gap: 10,
+  },
+  habitListDisabled: {
+    opacity: 0.55,
+  },
   habitCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 16,
-    marginBottom: 10,
+    backgroundColor: SEC_HS.white,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: SEC_HS.border,
+    padding: 12,
     ...SHADOWS.sm,
-    gap: 8,
   },
   habitCardActive: {
-    borderColor: '#86EFAC',
+    borderColor: `${SEC_HS.green}60`,
   },
   habitCardTitle: {
-    fontFamily: FONTS.title,
-    fontSize: 15.5,
+    fontFamily: FONTS.bold,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 4,
+    color: SEC_HS.navy,
+    marginBottom: 8,
   },
   habitCardTitleCompleted: {
-    color: '#166534',
+    color: SEC_HS.green,
+  },
+  habitCardItemsCol: {
+    gap: 6,
   },
   habitItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: SEC_HS.cream,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderColor: SEC_HS.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
   },
   habitItemRowChecked: {
-    backgroundColor: '#DCFCE7',
-    borderColor: '#86EFAC',
+    backgroundColor: SEC_HS.greenLight,
+    borderColor: `${SEC_HS.green}55`,
   },
   habitItemLabel: {
-    fontFamily: FONTS.regular,
-    fontSize: 13.5,
-    color: '#0F172A',
+    fontFamily: FONTS.medium,
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: SEC_HS.text,
     flex: 1,
-    marginRight: 10,
+    lineHeight: 17,
   },
   habitItemLabelChecked: {
-    color: '#0F172A',
+    color: SEC_HS.greenDark,
   },
   circularCheck: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: SEC_HS.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: SEC_HS.white,
+    flexShrink: 0,
   },
   circularCheckActive: {
-    backgroundColor: '#1E6548',
-    borderColor: '#1E6548',
-    borderWidth: 0,
+    backgroundColor: SEC_HS.green,
+    borderColor: SEC_HS.green,
   },
   footerDisclaimer: {
     fontFamily: FONTS.regular,
-    fontSize: 12,
-    color: '#64748B',
-    lineHeight: 18,
-    marginTop: 8,
+    fontSize: 11.5,
+    color: SEC_HS.muted,
+    lineHeight: 17,
+    marginTop: 14,
     marginBottom: 20,
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
   },
-  /* Tab 2: Recap Styles matching latest web screenshot */
+  /* Tab 2: Recap Styles */
   recapSummaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: SEC_HS.white,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 16,
-    marginBottom: 16,
+    borderColor: SEC_HS.border,
+    padding: 14,
+    marginBottom: 12,
     ...SHADOWS.sm,
   },
   recapSummaryTitle: {
-    fontFamily: FONTS.medium,
-    fontSize: 14.5,
-    color: '#64748B',
-    marginBottom: 12,
+    fontFamily: FONTS.semiBold,
+    fontSize: 12,
+    fontWeight: '600',
+    color: SEC_HS.muted,
+    marginBottom: 10,
   },
   recapTilesRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: 10,
   },
   recapTile: {
     flex: 1,
-    backgroundColor: '#F8F5EE',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: SEC_HS.warm,
+    borderRadius: 10,
+    paddingVertical: 10,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   recapTileNumber: {
-    fontFamily: FONTS.title,
-    fontSize: 28,
+    fontFamily: FONTS.bold,
+    fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 4,
+    color: SEC_HS.navy,
   },
   recapTileLabel: {
     fontFamily: FONTS.regular,
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: 11,
+    color: SEC_HS.muted,
+    marginTop: 2,
     textAlign: 'center',
   },
   recapRuleText: {
     fontFamily: FONTS.regular,
-    fontSize: 12.5,
-    color: '#64748B',
+    fontSize: 11.5,
+    color: SEC_HS.muted,
     marginTop: 2,
   },
   recapGroupsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: SEC_HS.white,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 16,
-    marginBottom: 16,
+    borderColor: SEC_HS.border,
+    padding: 14,
+    marginBottom: 12,
     ...SHADOWS.sm,
   },
   recapGroupsTitle: {
-    fontFamily: FONTS.title,
-    fontSize: 16,
+    fontFamily: FONTS.bold,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 16,
+    color: SEC_HS.navy,
+    marginBottom: 10,
+  },
+  recapGroupsList: {
+    gap: 8,
   },
   recapGroupRow: {
-    marginBottom: 16,
+    marginBottom: 2,
   },
   recapGroupHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   recapGroupName: {
-    fontFamily: FONTS.title,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontFamily: FONTS.semiBold,
+    fontSize: 12,
+    fontWeight: '600',
+    color: SEC_HS.navy,
   },
   recapGroupScore: {
-    fontFamily: FONTS.medium,
-    fontSize: 13,
-    color: '#64748B',
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: SEC_HS.muted,
   },
   recapProgressBarTrack: {
     height: 6,
-    backgroundColor: '#F5F0E8',
-    borderRadius: 3,
+    backgroundColor: SEC_HS.warm,
+    borderRadius: 999,
     overflow: 'hidden',
   },
   recapProgressBarFill: {
     height: 6,
-    backgroundColor: '#1E6548',
-    borderRadius: 3,
+    backgroundColor: SEC_HS.green,
+    borderRadius: 999,
   },
   monthNavButtonsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
+    gap: 8,
+    marginTop: 4,
     marginBottom: 20,
   },
-  monthNavPillBtn: {
+  monthNavOutlineBtn: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: SEC_HS.white,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderColor: SEC_HS.border,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 4,
   },
-  monthNavPillBtnDisabled: {
-    opacity: 0.9,
+  monthNavOutlineBtnDisabled: {
+    opacity: 0.4,
   },
-  monthNavPillBtnText: {
-    fontFamily: FONTS.bold,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+  monthNavOutlineBtnText: {
+    fontFamily: FONTS.semiBold,
+    fontSize: 12,
+    fontWeight: '600',
+    color: SEC_HS.navy,
   },
-  monthNavPillBtnTextDisabled: {
-    fontFamily: FONTS.medium,
-    color: '#94A3B8',
+  monthNavOutlineBtnTextDisabled: {
+    color: SEC_HS.muted,
   },
-  /* Tab 3: Leaderboard Styles matching Screenshot 1 */
+  /* Tab 3: Leaderboard Styles */
   classLeaderboardCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    backgroundColor: SEC_HS.white,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 20,
+    borderColor: SEC_HS.border,
+    padding: 14,
     marginBottom: 20,
     ...SHADOWS.sm,
   },
@@ -1231,80 +1316,82 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   classLeaderboardTitle: {
-    fontFamily: FONTS.title,
-    fontSize: 18,
+    fontFamily: FONTS.bold,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 3,
+    color: SEC_HS.navy,
   },
   classLeaderboardSubtitle: {
     fontFamily: FONTS.regular,
-    fontSize: 13.5,
-    color: '#64748B',
+    fontSize: 12,
+    color: SEC_HS.muted,
+    marginTop: 2,
   },
   fullLeaderboardLinkText: {
-    fontFamily: FONTS.bold,
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#2563EB',
+    fontFamily: FONTS.semiBold,
+    fontSize: 12,
+    fontWeight: '600',
+    color: SEC_HS.blue,
   },
   rankList: {
-    gap: 10,
+    gap: 6,
   },
   rankRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAF9F5',
+    backgroundColor: SEC_HS.cream,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderColor: SEC_HS.border,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    gap: 10,
   },
   rankRowCurrentUser: {
-    backgroundColor: '#DBEAFE',
-    borderColor: '#BFDBFE',
+    backgroundColor: SEC_HS.blueLight,
+    borderColor: `${SEC_HS.blue}55`,
   },
   rankNumberText: {
-    fontFamily: FONTS.medium,
-    fontSize: 13.5,
-    color: '#64748B',
-    width: 28,
+    fontFamily: FONTS.consolas,
+    fontSize: 12,
+    fontWeight: '700',
+    color: SEC_HS.muted,
+    width: 22,
   },
   rankNumberTextCurrentUser: {
-    fontFamily: FONTS.bold,
-    color: '#475569',
+    color: SEC_HS.muted,
   },
   studentNameText: {
-    fontFamily: FONTS.semiBold,
-    fontSize: 14,
-    color: '#0F172A',
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    fontWeight: '500',
+    color: SEC_HS.navy,
     flex: 1,
   },
   studentNameTextCurrentUser: {
     fontFamily: FONTS.bold,
     fontWeight: '700',
-    color: '#0F172A',
   },
   pointsTextWrap: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   pointsLetterH: {
-    fontFamily: FONTS.bold,
-    fontSize: 14,
+    fontFamily: FONTS.consolas,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#15803D',
+    color: SEC_HS.green,
   },
   pointsNumberConsolas: {
     fontFamily: FONTS.consolas,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#15803D',
-    letterSpacing: 0.5,
+    color: SEC_HS.green,
   },
 });
 

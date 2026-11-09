@@ -249,6 +249,57 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       .catch(() => {});
   }, []);
 
+  // Fetch live habit records for active month and merge into habitsByDate
+  useEffect(() => {
+    let isMounted = true;
+    const ym = todayKey.slice(0, 7);
+    api.habits
+      .getMonth(ym)
+      .then((res: any) => {
+        if (!isMounted || !res || !Array.isArray(res.days) || res.days.length === 0) return;
+        setHabitsByDate((prev) => {
+          const next = { ...prev };
+          res.days.forEach((dayRecord: any) => {
+            if (!dayRecord.record_date || !Array.isArray(dayRecord.items)) return;
+            const dateStr = dayRecord.record_date;
+            const baseGroups =
+              next[dateStr] ||
+              HABIT_GROUPS_INITIAL.map((g) => ({
+                ...g,
+                items: g.items.map((i) => ({ ...i, checked: false })),
+              }));
+
+            const updated = baseGroups.map((g) => {
+              const mappedId =
+                g.id === 'rise-early' ? 'wake' :
+                g.id === 'eat-well' ? 'eat' :
+                g.id === 'love-learning' ? 'learn' :
+                g.id === 'sleep-early' ? 'sleep' : g.id;
+
+              return {
+                ...g,
+                items: g.items.map((i) => {
+                  const match = dayRecord.items.find(
+                    (it: any) =>
+                      (it.category_id === mappedId || it.category_id === g.id) &&
+                      it.item_label === i.text
+                  );
+                  return match ? { ...i, checked: Boolean(match.is_checked) } : i;
+                }),
+              };
+            });
+            next[dateStr] = updated;
+          });
+          return next;
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [todayKey, studentProfile.studentId]);
+
   // House Leaderboard State (7 houses, dynamic points and breakdown)
   const [houseLeaderboard, setHouseLeaderboard] = useState<LeaderboardHouse[]>([...LEADERBOARD_HOUSES]);
 
@@ -460,6 +511,7 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     let shouldAdd = false;
     let shouldRevoke = false;
     let targetChecked = true;
+    let targetItemText = '';
 
     setHabitsByDate((prev) => {
       const existing =
@@ -474,14 +526,15 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         return {
           ...g,
           items: g.items.map((i) => {
-            if (i.id !== itemId) return i;
+            if (i.id !== itemId && i.text !== itemId) return i;
             targetChecked = !i.checked;
+            targetItemText = i.text;
             return { ...i, checked: !i.checked };
           }),
         };
       });
 
-      // Count categories with >= 1 checked item for this day
+      // Count categories with >= 1 checked item for this day (threshold: 5 categories)
       const activeCategoriesCount = updated.filter((g) =>
         g.items.some((i) => i.checked)
       ).length;
@@ -498,8 +551,11 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       };
     });
 
-    // Synchronize to backend database asynchronously
-    api.habits.toggleHabit(dateKey, groupId, itemId, targetChecked).catch(() => {});
+    // Synchronize to backend database asynchronously with official item label
+    const labelToSend = targetItemText || itemId;
+    api.habits.toggleHabit(dateKey, groupId, labelToSend, targetChecked).catch((err: any) => {
+      console.warn('[Habit Sync Error]', err?.message || err);
+    });
 
     if (shouldAdd) {
       addHabitPoints(dateKey);

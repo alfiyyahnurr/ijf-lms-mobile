@@ -981,40 +981,56 @@ export const api = {
     },
 
     // GET {{baseUrl}}/api/student/habits/month?yearMonth={{yearMonth}}
-    getMonth: async (yearMonth: string = '2026-09') => {
+    getMonth: async (yearMonth?: string) => {
+      const ym = yearMonth || new Date().toISOString().slice(0, 7);
       return requestApi<any>(
-        `/api/student/habits/month?yearMonth=${encodeURIComponent(yearMonth)}`,
+        `/api/student/habits/month?yearMonth=${encodeURIComponent(ym)}`,
         'GET',
         undefined,
         {
-          yearMonth,
-          submittedDays: [5, 6, 8, 9, 12, 13, 14],
-          fullDaysCount: 7,
-          daysLoggedCount: 7,
-          points: 14,
+          yearMonth: ym,
+          submittedDays: [],
+          fullDaysCount: 0,
+          daysLoggedCount: 0,
+          points: 0,
+          days: [],
+          categories: [],
         }
       );
     },
 
     // POST {{baseUrl}}/api/student/habits/toggle
     toggleHabit: async (recordDate: string, categoryId: string | number, itemLabel: string, checked: boolean) => {
+      const catMap: Record<string, string> = {
+        'rise-early': 'wake',
+        'eat-well': 'eat',
+        'love-learning': 'learn',
+        'sleep-early': 'sleep',
+      };
+      const normalizedCat = catMap[String(categoryId)] || String(categoryId);
+
       return requestApi<any>(
         '/api/student/habits/toggle',
         'POST',
         {
           recordDate,
-          categoryId,
+          categoryId: normalizedCat,
           itemLabel,
           checked,
         },
         {
           success: true,
           recordDate,
-          categoryId,
+          categoryId: normalizedCat,
           itemLabel,
           checked,
         }
       );
+    },
+
+    // Alias for toggleHabit
+    toggle: async (recordDate: string, categoryId: string | number, itemLabel: string, checked: boolean) => {
+      return api.habits.toggleHabit(recordDate, categoryId, itemLabel, checked);
     },
   },
 
