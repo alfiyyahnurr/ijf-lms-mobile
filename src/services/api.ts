@@ -142,8 +142,44 @@ export async function requestApi<T>(
 // In-memory dynamic store for Literacy entries
 let inMemoryLiteracyEntries: LiteracyEntry[] = [...INITIAL_LITERACY_ENTRIES];
 
-// Registered student database records in Kreativa LMS
+// Registered student database records in Kreativa LMS (matched to database core_users & core_students)
 export const REGISTERED_STUDENTS_DB: Record<string, any> = {
+  'irvanadrian151@gmail.com': {
+    userId: 2602,
+    studentId: 2602,
+    schoolId: 6,
+    email: 'irvanadrian151@gmail.com',
+    fullName: 'Zahra Milyazka Fakhirah',
+    role: 'student',
+    schoolName: 'Kreativa Global High School',
+    className: 'Secondary 4 - S4 A',
+    house: 'Falcon',
+    studentCode: 'KGH-2602',
+  },
+  'erwin.selamet@indonesiajuara.id': {
+    userId: 2597,
+    studentId: 2597,
+    schoolId: 6,
+    email: 'erwin.selamet@indonesiajuara.id',
+    fullName: 'Radithya Baihaqi',
+    role: 'student',
+    schoolName: 'Kreativa Global High School',
+    className: 'Secondary 4 - S4 A',
+    house: 'Eagle',
+    studentCode: 'KGH-2597',
+  },
+  'tania@cnt.id': {
+    userId: 2568,
+    studentId: 2568,
+    schoolId: 2,
+    email: 'tania@cnt.id',
+    fullName: 'Raline Hagyahazna Rahmani',
+    role: 'student',
+    schoolName: 'Kreativa Global School',
+    className: 'Grade 7-A',
+    house: 'Falcon',
+    studentCode: 'KGS-2568',
+  },
   'fatih@learn.kreativaglobal.sch.id': {
     userId: 2602,
     studentId: 2602,
@@ -151,6 +187,10 @@ export const REGISTERED_STUDENTS_DB: Record<string, any> = {
     email: 'fatih@learn.kreativaglobal.sch.id',
     fullName: 'Fatih Alamsyah',
     role: 'student',
+    schoolName: 'Kreativa Global School',
+    className: 'Grade 7-A (Cambridge Lower Secondary)',
+    house: 'Falcon',
+    studentCode: '0089217364',
   },
   'fatih.alamsyah@learn.kreativaglobal.sch.id': {
     userId: 2602,
@@ -159,6 +199,10 @@ export const REGISTERED_STUDENTS_DB: Record<string, any> = {
     email: 'fatih.alamsyah@learn.kreativaglobal.sch.id',
     fullName: 'Fatih Alamsyah',
     role: 'student',
+    schoolName: 'Kreativa Global School',
+    className: 'Grade 7-A (Cambridge Lower Secondary)',
+    house: 'Falcon',
+    studentCode: '0089217364',
   },
 };
 
