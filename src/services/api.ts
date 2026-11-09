@@ -82,6 +82,12 @@ export async function requestApi<T>(
   body?: any,
   fallbackData?: T
 ): Promise<T> {
+  const fullUrl = `${API_BASE_URL}${endpoint}`;
+  console.log(`[API Request] ${method} ${fullUrl}`);
+  if (body) {
+    console.log('[API Request Body]', JSON.stringify(body, null, 2));
+  }
+
   try {
     const headers: Record<string, string> = {
       'Accept': 'application/json',
@@ -94,12 +100,6 @@ export async function requestApi<T>(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-    const fullUrl = `${API_BASE_URL}${endpoint}`;
-    console.log(`[API Request] ${method} ${fullUrl}`);
-    if (body) {
-      console.log('[API Payload]', JSON.stringify(body, null, 2));
-    }
-
     const res = await fetch(fullUrl, {
       method,
       headers,
@@ -108,11 +108,10 @@ export async function requestApi<T>(
     });
     clearTimeout(timeoutId);
 
-    console.log(`[API Response] Status: ${res.status} ${res.statusText}`);
-
     if (res.ok) {
       const json = await res.json();
-      console.log('[API Success Data]', JSON.stringify(json, null, 2));
+      console.log(`[API Response ${res.status}] ${method} ${endpoint} (Live Backend)`);
+      console.log('[API Response Data]', JSON.stringify(json, null, 2));
       return json as T;
     }
 
@@ -121,22 +120,21 @@ export async function requestApi<T>(
     const serverMessage = errorJson?.error || res.statusText || 'Request failed';
     const serverCode = errorJson?.code;
 
-    console.log(`[API Server Error] Status ${res.status}:`, serverMessage, serverCode || '');
-
-    // For 401 or 403, throw explicit ApiError without using fallback data
-    if (res.status === 401 || res.status === 403) {
-      throw new ApiError(serverMessage, res.status, serverCode);
-    }
-
-    if (fallbackData !== undefined) return fallbackData;
-    throw new ApiError(serverMessage, res.status, serverCode);
-  } catch (err: any) {
-    if (err instanceof ApiError) {
-      throw err;
-    }
+    console.log(`[API Response ${res.status}] ${method} ${endpoint}: ${serverMessage}`);
     if (fallbackData !== undefined) {
+      console.log(`[API Fallback] ${method} ${endpoint} returned status ${res.status}. Serving fallback data:`);
+      console.log('[API Fallback Data]', JSON.stringify(fallbackData, null, 2));
       return fallbackData;
     }
+
+    throw new ApiError(serverMessage, res.status, serverCode);
+  } catch (err: any) {
+    if (fallbackData !== undefined) {
+      console.log(`[API Fallback] ${method} ${endpoint} unreachable (${err?.message || 'network error'}). Serving fallback data:`);
+      console.log('[API Fallback Data]', JSON.stringify(fallbackData, null, 2));
+      return fallbackData;
+    }
+    console.log(`[API Network Error] ${method} ${endpoint}:`, err?.message || err);
     throw err;
   }
 }
@@ -861,12 +859,6 @@ export const api = {
         success: true,
         ...payload,
       });
-    },
-  },
-      return {
-        success: true,
-        ...payload,
-      };
     },
   },
 
