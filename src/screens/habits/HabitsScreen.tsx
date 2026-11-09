@@ -942,6 +942,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1.5,
     borderColor: SEC_HS.blue,
+    borderStyle: 'solid',
     backgroundColor: SEC_HS.blueLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1046,6 +1047,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 1.5,
     borderColor: SEC_HS.blue,
+    borderStyle: 'solid',
     backgroundColor: SEC_HS.blueLight,
   },
   legendBoxSubmission: {
