@@ -75,6 +75,8 @@ export const HabitsScreen: React.FC = () => {
     toastList,
     dismissToast,
     showToast,
+    fetchHabitsMonth,
+    fetchClassLeaderboard,
   } = useStudentData();
 
   // Real-time system calendar base
@@ -87,6 +89,38 @@ export const HabitsScreen: React.FC = () => {
   const [viewYear, setViewYear] = useState<number>(REAL_TODAY_YEAR);
   const [viewMonth, setViewMonth] = useState<number>(REAL_TODAY_MONTH);
   const [selectedDate, setSelectedDate] = useState<number>(REAL_TODAY_DATE);
+  const [loadingMonth, setLoadingMonth] = useState<boolean>(false);
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState<boolean>(false);
+
+  const viewedYearMonth = useMemo(() => {
+    return `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
+  }, [viewYear, viewMonth]);
+
+  // Fetch live month records from backend API when view month changes
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingMonth(true);
+    fetchHabitsMonth(viewedYearMonth).finally(() => {
+      if (isMounted) setLoadingMonth(false);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [viewedYearMonth, fetchHabitsMonth]);
+
+  // Fetch live class habits leaderboard from API when switching to leaderboard tab
+  useEffect(() => {
+    if (activeTab === 'leaderboard') {
+      let isMounted = true;
+      setLoadingLeaderboard(true);
+      fetchClassLeaderboard().finally(() => {
+        if (isMounted) setLoadingLeaderboard(false);
+      });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [activeTab, fetchClassLeaderboard]);
 
   // Auto-reset calendar to latest real-time date (current year, month, and today)
   const resetCalendarToLatest = useCallback(() => {
@@ -715,42 +749,48 @@ export const HabitsScreen: React.FC = () => {
               </View>
 
               {/* Class Ranking List matching Web LMS */}
-              <View style={styles.rankList}>
-                {classHabitsLeaderboard.slice(0, 15).map((student, idx) => {
-                  const hPoints = student.isCurrent ? studentProfile.habitsPts : (student.habitsPts ?? student.points ?? 0);
-                  const isMe = student.isCurrent;
-                  return (
-                    <View
-                      key={student.name || idx}
-                      style={[styles.rankRow, isMe && styles.rankRowCurrentUser]}
-                    >
-                      <Text
-                        style={[
-                          styles.rankNumberText,
-                          isMe && styles.rankNumberTextCurrentUser,
-                        ]}
+              {loadingLeaderboard ? (
+                <Text style={styles.emptyStateText}>Loading…</Text>
+              ) : classHabitsLeaderboard.length === 0 ? (
+                <Text style={styles.emptyStateText}>No class ranking yet.</Text>
+              ) : (
+                <View style={styles.rankList}>
+                  {classHabitsLeaderboard.slice(0, 15).map((student, idx) => {
+                    const hPoints = student.isCurrent ? studentProfile.habitsPts : (student.habitsPts ?? student.points ?? 0);
+                    const isMe = student.isCurrent;
+                    return (
+                      <View
+                        key={student.name || idx}
+                        style={[styles.rankRow, isMe && styles.rankRowCurrentUser]}
                       >
-                        {idx + 1}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.studentNameText,
-                          isMe && styles.studentNameTextCurrentUser,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {student.name}{isMe ? ' (you)' : ''}
-                      </Text>
-                      <Text style={styles.pointsTextWrap}>
-                        <Text style={styles.pointsLetterH}>H </Text>
-                        <Text style={styles.pointsNumberConsolas}>
-                          {hPoints}
+                        <Text
+                          style={[
+                            styles.rankNumberText,
+                            isMe && styles.rankNumberTextCurrentUser,
+                          ]}
+                        >
+                          {idx + 1}
                         </Text>
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
+                        <Text
+                          style={[
+                            styles.studentNameText,
+                            isMe && styles.studentNameTextCurrentUser,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {student.name}{isMe ? ' (you)' : ''}
+                        </Text>
+                        <Text style={styles.pointsTextWrap}>
+                          <Text style={styles.pointsLetterH}>H </Text>
+                          <Text style={styles.pointsNumberConsolas}>
+                            {hPoints}
+                          </Text>
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -1392,6 +1432,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: SEC_HS.green,
+  },
+  emptyStateText: {
+    fontFamily: FONTS.regular,
+    fontSize: 13,
+    color: SEC_HS.muted,
+    paddingVertical: 12,
+    textAlign: 'center',
   },
 });
 

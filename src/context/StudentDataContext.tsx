@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import {
   StudentProfile,
   LeaderboardStudent,
@@ -49,78 +49,19 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-// Fixed static historical habit submissions from October 2026
-// Oct 14: Full day completed with 6 categories (17 items checked: rise-early, worship, exercise, eat-well, love-learning, community; sleep-early unchecked)
-// Oct 13: Only Worship checked once (so Worship total is 2/22, while other groups are 1/22, matching reference)
-// Oct 15: Partial day (Rise Early checked, 0 points)
-const HISTORICAL_HABITS_OCTOBER: Record<string, HabitGroup[]> = {
-  // Oct 14: Full day completed with 6 active categories (earns 2 points)
-  '2026-10-14': HABIT_GROUPS_INITIAL.map((g) => ({
-    ...g,
-    items: g.items.map((i) => ({
-      ...i,
-      checked: g.id !== 'sleep-early',
-    })),
-  })),
-
-  // Oct 13: Only 1 prayer checked (Worship = 2/22, but NOT a full day)
-  '2026-10-13': HABIT_GROUPS_INITIAL.map((g) => ({
-    ...g,
-    items: g.items.map((i, idx) => ({
-      ...i,
-      checked: g.id === 'worship' && idx === 0,
-    })),
-  })),
-
-  // Oct 15: Partial day (Rise Early checked)
-  '2026-10-15': HABIT_GROUPS_INITIAL.map((g) => ({
-    ...g,
-    items: g.items.map((i, idx) => ({
-      ...i,
-      checked: g.id === 'rise-early' && idx === 0,
-    })),
-  })),
-};
-
+// Initial habits map per date (empty clean state, populated 100% from live backend API)
 const generateInitialHabitsByDate = (todayKey: string): Record<string, HabitGroup[]> => {
-  const data: Record<string, HabitGroup[]> = {
-    ...HISTORICAL_HABITS_OCTOBER,
-  };
-
-  // Ensure today's date starts cleanly initialized if not already in historical records
-  if (!data[todayKey]) {
-    data[todayKey] = HABIT_GROUPS_INITIAL.map((g) => ({
+  return {
+    [todayKey]: HABIT_GROUPS_INITIAL.map((g) => ({
       ...g,
       items: g.items.map((i) => ({ ...i, checked: false })),
-    }));
-  }
-
-  return data;
+    })),
+  };
 };
 
-// Permanent static historical points & awarded dates
-const INITIAL_AWARDED_DATES: string[] = ['2026-10-14'];
-const INITIAL_HABIT_PTS = 2; // +2 earned from Oct 14 Full Day
-const INITIAL_POINTS_HISTORY: PointHistoryItem[] = [
-  {
-    id: 'pt_partial_2026-10-15',
-    title: 'Habit partial day',
-    date: 'October 15, 2026',
-    points: 0,
-  },
-  {
-    id: 'pt_2026-10-14',
-    title: 'Habit full day (≥5 categories checked)',
-    date: 'October 14, 2026',
-    points: 2,
-  },
-  {
-    id: 'pt_partial_2026-10-13',
-    title: 'Habit partial day',
-    date: 'October 13, 2026',
-    points: 0,
-  },
-];
+const INITIAL_AWARDED_DATES: string[] = [];
+const INITIAL_HABIT_PTS = 0;
+const INITIAL_POINTS_HISTORY: PointHistoryItem[] = [];
 
 interface StudentDataContextType {
   // Profile & Points
@@ -140,6 +81,8 @@ interface StudentDataContextType {
   habitsByDate: Record<string, HabitGroup[]>;
   toggleHabit: (dateKey: string, groupId: string, itemId: string) => void;
   isDateSubmitted: (dateKey: string) => boolean;
+  fetchHabitsMonth: (yearMonth: string) => Promise<any>;
+  fetchClassLeaderboard: () => Promise<any>;
 
   // Toast Notifications
   toastList: ToastNotification[];
@@ -249,14 +192,11 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
       .catch(() => {});
   }, []);
 
-  // Fetch live habit records for active month and merge into habitsByDate
-  useEffect(() => {
-    let isMounted = true;
-    const ym = todayKey.slice(0, 7);
-    api.habits
-      .getMonth(ym)
-      .then((res: any) => {
-        if (!isMounted || !res || !Array.isArray(res.days) || res.days.length === 0) return;
+  // Fetch live habit records for a specific yearMonth from backend API
+  const fetchHabitsMonth = useCallback(async (yearMonth: string) => {
+    try {
+      const res = await api.habits.getMonth(yearMonth);
+      if (res && Array.isArray(res.days)) {
         setHabitsByDate((prev) => {
           const next = { ...prev };
           res.days.forEach((dayRecord: any) => {
@@ -292,44 +232,61 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
           });
           return next;
         });
-      })
-      .catch(() => {});
+        return res;
+      }
+    } catch (err) {
+      console.warn('[Fetch Habits Month Error]', err);
+    }
+    return null;
+  }, []);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [todayKey, studentProfile.studentId]);
+  // Fetch live class habits leaderboard directly from backend API
+  const fetchClassLeaderboard = useCallback(async () => {
+    try {
+      const data = await api.leaderboard.getClass();
+      if (data && Array.isArray(data.rows)) {
+        const myId = Number(data.myStudentId) || studentProfile.studentId;
+        const mapped: LeaderboardStudent[] = data.rows.map((row: any, idx: number) => ({
+          id: String(row.student_id),
+          name: row.full_name,
+          points: Number(row.total_points) || 0,
+          habitsPts: Number(row.habits_pts) || 0,
+          literacyPts: Number(row.literacy_pts) || 0,
+          disciplinePts: Number(row.discipline_pts) || 0,
+          house: row.house,
+          rank: idx + 1,
+          isCurrent: myId ? row.student_id === myId : false,
+        }));
+
+        const habitsSorted = [...mapped]
+          .sort((a, b) => (b.habitsPts || 0) - (a.habitsPts || 0))
+          .map((s, idx) => ({ ...s, rank: idx + 1 }));
+
+        setClassHabitsLeaderboard(habitsSorted);
+        setClassLeaderboard(mapped);
+        return data;
+      }
+    } catch (err) {
+      console.warn('[Fetch Class Leaderboard Error]', err);
+    }
+    return null;
+  }, [studentProfile.studentId]);
+
+  // Load initial active month habits on startup / user switch
+  useEffect(() => {
+    const ym = todayKey.slice(0, 7);
+    fetchHabitsMonth(ym);
+    fetchClassLeaderboard();
+  }, [todayKey, studentProfile.studentId, fetchHabitsMonth, fetchClassLeaderboard]);
 
   // House Leaderboard State (7 houses, dynamic points and breakdown)
   const [houseLeaderboard, setHouseLeaderboard] = useState<LeaderboardHouse[]>([...LEADERBOARD_HOUSES]);
 
-  // Class Habits Leaderboard (Ranked SOLELY by habitsPts for Habits screen tab 3)
-  const [classHabitsLeaderboard, setClassHabitsLeaderboard] = useState<LeaderboardStudent[]>(() => {
-    const list = LEADERBOARD_CLASS.map((student) => {
-      if (student.isCurrent) {
-        return {
-          ...student,
-          habitsPts: STUDENT_PROFILE.habitsPts,
-          points: STUDENT_PROFILE.habitsPts,
-        };
-      }
-      return {
-        ...student,
-        habitsPts: student.habitsPts || 0,
-        points: student.habitsPts || 0,
-      };
-    });
-    return [...list]
-      .sort((a, b) => (b.habitsPts || 0) - (a.habitsPts || 0))
-      .map((s, idx) => ({ ...s, rank: idx + 1 }));
-  });
+  // Class Habits Leaderboard (Ranked SOLELY by habitsPts - populated live from API)
+  const [classHabitsLeaderboard, setClassHabitsLeaderboard] = useState<LeaderboardStudent[]>([]);
 
   // Class Full Leaderboard (Ranked by TOTAL points D+L+H for Leaderboard screen tab 3)
-  const [classLeaderboard, setClassLeaderboard] = useState<LeaderboardStudent[]>(() => {
-    return [...LEADERBOARD_CLASS]
-      .sort((a, b) => b.points - a.points)
-      .map((s, idx) => ({ ...s, rank: idx + 1 }));
-  });
+  const [classLeaderboard, setClassLeaderboard] = useState<LeaderboardStudent[]>([]);
 
   // Jenjang Full Leaderboard (Ranked by TOTAL points D+L+H for Leaderboard screen tab 2)
   const [jenjangLeaderboard, setJenjangLeaderboard] = useState<LeaderboardStudent[]>(() => {
@@ -706,6 +663,8 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         habitsByDate,
         toggleHabit,
         isDateSubmitted,
+        fetchHabitsMonth,
+        fetchClassLeaderboard,
         toastList,
         showToast,
         dismissToast,

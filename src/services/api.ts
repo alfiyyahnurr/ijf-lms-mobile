@@ -103,6 +103,7 @@ export async function requestApi<T>(
     const res = await fetch(fullUrl, {
       method,
       headers,
+      credentials: 'include',
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });
@@ -1267,12 +1268,19 @@ export const api = {
     },
 
     // GET {{baseUrl}}/api/leaderboard/class?classId={{classId}}&academicYearId={{academicYearId}}&termId={{termId}}
-    getClass: async (classId: number = 99, academicYearId: number = 7, termId: number = 1): Promise<LeaderboardStudent[]> => {
-      return requestApi<LeaderboardStudent[]>(
-        `/api/leaderboard/class?classId=${classId}&academicYearId=${academicYearId}&termId=${termId}`,
+    getClass: async (classId?: number, academicYearId?: number, termId?: number): Promise<any> => {
+      let query = '';
+      const params: string[] = [];
+      if (classId) params.push(`classId=${classId}`);
+      if (academicYearId) params.push(`academicYearId=${academicYearId}`);
+      if (termId) params.push(`termId=${termId}`);
+      if (params.length > 0) query = `?${params.join('&')}`;
+
+      return requestApi<any>(
+        `/api/leaderboard/class${query}`,
         'GET',
         undefined,
-        [...LEADERBOARD_CLASS]
+        { rows: [], myStudentId: null, className: null }
       );
     },
 
