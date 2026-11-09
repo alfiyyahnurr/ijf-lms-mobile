@@ -195,8 +195,14 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setIsError(false);
     setErrorMessage(null);
     try {
-      // Smooth simulation of network data sync
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // Sync student profile from live backend API
+      const liveProfile = await api.profile.getProfile();
+      if (liveProfile && liveProfile.fullName) {
+        setStudentProfile((prev) => ({
+          ...prev,
+          ...liveProfile,
+        }));
+      }
     } catch (err: any) {
       setIsError(true);
       setErrorMessage(err?.message || 'Failed to refresh data. Please try again.');
@@ -227,11 +233,16 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         if (saved) {
           setStudentProfile((prev) => ({
             ...prev,
+            ...saved,
             userId: saved.userId ?? prev.userId,
             studentId: saved.studentId ?? prev.studentId,
             schoolId: saved.schoolId ?? prev.schoolId,
             fullName: saved.fullName ?? prev.fullName,
             email: saved.email ?? prev.email,
+            className: saved.className ?? prev.className,
+            schoolName: saved.schoolName ?? prev.schoolName,
+            house: saved.house ?? prev.house,
+            academicYearName: saved.academicYearName ?? prev.academicYearName,
           }));
         }
       })

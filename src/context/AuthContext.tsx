@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const restoreSession = async (): Promise<boolean> => {
     try {
-      console.log('[Auth] Memeriksa sesi tersimpan pada aplikasi startup...');
+      console.log('[Auth] Checking saved session at startup...');
       const savedToken = await storage.getAuthToken();
       const savedProfile = await storage.getStudentSession();
 
@@ -49,14 +49,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setStudentUser(savedProfile);
         }
         setIsAuthenticated(true);
-        console.log('[Auth] Sesi aktif ditemukan untuk:', savedProfile?.fullName || savedProfile?.email || 'Siswa');
+        console.log(`[Auth] Active session found for user: ${savedProfile?.fullName || savedProfile?.email || 'Student'}`);
+        if (savedProfile) {
+          console.log('[Auth Session Data]', JSON.stringify(savedProfile, null, 2));
+        }
         return true;
       }
-      console.log('[Auth] Tidak ada sesi login tersimpan saat startup.');
+      console.log('[Auth] No saved session found at startup.');
       setIsAuthenticated(false);
       return false;
     } catch (err: any) {
-      console.error('[Auth] Error restoreSession:', err?.message || err);
+      console.error('[Auth Error] Error restoring session:', err?.message || err);
       setIsAuthenticated(false);
       return false;
     } finally {
@@ -70,7 +73,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const saveSession = async (token: string, profile: Partial<StudentProfile>) => {
     try {
-      console.log('[Auth] Menyimpan sesi ke storage...');
+      console.log(`[Auth] Persisting session to storage for: ${profile?.fullName || profile?.email || 'Student'}`);
+      console.log('[Auth Session Data]', JSON.stringify(profile, null, 2));
       await storage.setAuthToken(token);
       await storage.setStudentSession(profile);
       setAuthToken(token);
@@ -78,9 +82,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setStudentUser(profile);
       setHasLoggedOut(false);
       setIsAuthenticated(true);
-      console.log('[Auth] Sesi BERHASIL disimpan untuk:', profile?.fullName || profile?.email || 'Siswa');
+      console.log(`[Auth] Session successfully persisted for: ${profile?.fullName || profile?.email || 'Student'}`);
     } catch (err: any) {
-      console.error('[Auth] Gagal menyimpan sesi:', err?.message || err);
+      console.error('[Auth Error] Failed to persist session:', err?.message || err);
     }
   };
 
@@ -92,8 +96,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         studentId: authResult.studentId || authResult.user?.studentId,
         userId: authResult.userId || authResult.user?.userId,
         schoolId: authResult.schoolId || authResult.user?.schoolId,
-        fullName: authResult.user?.fullName || 'Fatih Alamsyah',
-        email: authResult.user?.email || 'fatih.alamsyah@learn.kreativaglobal.sch.id',
+        fullName: authResult.user?.fullName || 'Student',
+        email: authResult.user?.email || 'student@learn.kreativaglobal.sch.id',
         role: authResult.user?.role || 'student',
       };
 
@@ -118,7 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setStudentUser(null);
     setHasLoggedOut(true);
     setIsAuthenticated(false);
-    console.log('[Auth] Pengguna berhasil logout. Sesi dibersihkan.');
+    console.log('[Auth] User logged out successfully. Session cleared.');
   };
 
   return (

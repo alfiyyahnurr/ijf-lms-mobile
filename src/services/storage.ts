@@ -108,8 +108,8 @@ export const storage = {
       if (RNC?.multiSet) {
         await nativeMultiSet(key, value);
       }
-    } catch (err: any) {
-      console.error('[Storage Error] setItem:', err?.message || err);
+    } catch {
+      // Stored in memoryStorage as fallback
     }
   },
 
@@ -128,8 +128,8 @@ export const storage = {
       if (RNC?.multiRemove) {
         await nativeMultiRemove(key);
       }
-    } catch (err: any) {
-      console.error('[Storage Error] removeItem:', err?.message || err);
+    } catch {
+      // Memory storage removed
     }
   },
 

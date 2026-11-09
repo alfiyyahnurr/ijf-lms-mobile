@@ -223,20 +223,28 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
   const handleInstantSuccess = (payload?: any) => {
     if (authCompletedRef.current) return;
     authCompletedRef.current = true;
-    console.log('[Auth] Berhasil terhubung ke akun LMS!');
 
     const userObj = payload?.user || payload?.profile || payload || {};
+    const detailedProfile = payload?.profile || {};
 
-    // Immediately trigger success with student session
-    onSuccess({
+    const resolvedUser = {
       userId: userObj.userId || userObj.id || 2602,
-      studentId: userObj.studentId || 2602,
+      studentId: userObj.studentId || detailedProfile.studentId || 2602,
       schoolId: userObj.schoolId || 6,
-      fullName: userObj.fullName || userObj.name || 'Fatih Alamsyah',
-      email: userObj.email || 'fatih@learn.kreativaglobal.sch.id',
-      role: userObj.role || 'student',
+      fullName: userObj.fullName || userObj.name || detailedProfile.fullName || 'Student',
+      email: userObj.email || detailedProfile.email || 'student@learn.kreativaglobal.sch.id',
+      role: (userObj.role || 'student') as 'student',
       token: payload?.accessToken || payload?.token || undefined,
-    });
+      schoolName: detailedProfile.schoolName || userObj.schoolName,
+      className: detailedProfile.className || userObj.className,
+      house: detailedProfile.houseName || userObj.house,
+      academicYearName: detailedProfile.academicYear || userObj.academicYearName,
+    };
+
+    console.log('[Auth] Connected to LMS successfully!');
+    console.log('[Auth User Data]', JSON.stringify(resolvedUser, null, 2));
+
+    onSuccess(resolvedUser);
   };
 
   // Intercept navigation requests BEFORE the page starts rendering
@@ -268,7 +276,36 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
       url.includes('learn.kreativaglobal.sch.id/student') ||
       url.includes('learn.kreativaglobal.sch.id/courses')
     ) {
-      handleInstantSuccess();
+      // Fetch real user profile from live database API /api/auth/me via authenticated session
+      webViewRef.current?.injectJavaScript(`
+        fetch('/api/auth/me', { credentials: 'include' })
+          .then(function(r) { return r.json(); })
+          .then(function(d) {
+            if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'AUTH_SUCCESS',
+                payload: d
+              }));
+            }
+          })
+          .catch(function() {
+            if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'AUTH_SUCCESS',
+                payload: null
+              }));
+            }
+          });
+        true;
+      `);
+
+      // Fallback timeout in case fetch hangs
+      setTimeout(() => {
+        if (!authCompletedRef.current) {
+          handleInstantSuccess();
+        }
+      }, 2000);
+
       return false; // STOP: do NOT render the web dashboard in WebView!
     }
 

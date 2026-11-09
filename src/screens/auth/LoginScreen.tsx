@@ -46,9 +46,13 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         userId: userData?.userId || 2602,
         studentId: userData?.studentId || 2602,
         schoolId: userData?.schoolId || 6,
-        fullName: userData?.fullName || 'Fatih Alamsyah',
-        email: userData?.email || 'fatih@learn.kreativaglobal.sch.id',
+        fullName: userData?.fullName || 'Student',
+        email: userData?.email || 'student@learn.kreativaglobal.sch.id',
         role: userData?.role || 'student',
+        schoolName: userData?.schoolName,
+        className: userData?.className,
+        house: userData?.house,
+        academicYearName: userData?.academicYearName,
       };
 
       // 1. Update student data context
@@ -60,7 +64,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       // 2. Persist session token and student profile permanently to native device storage
       await saveSession(token, profileData);
     } catch (err: any) {
-      console.error('[Auth] Error autentikasi:', err?.message || err);
+      console.error('[Auth Error] Authentication error:', err?.message || err);
     } finally {
       setLoading(false);
     }
@@ -68,7 +72,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
   // Handles error callback from the In-App WebView Bridge
   const handleAuthError = (errorMessage: string) => {
-    console.log('[LoginScreen] handleAuthError:', errorMessage);
+    console.log('[Auth Error] Sign-in failed:', errorMessage);
     setShowWebView(false);
     setLoading(false);
     setErrorMsg(errorMessage);
@@ -136,7 +140,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           style={[styles.googleButton, loading && styles.googleButtonDisabled]}
           activeOpacity={0.88}
           onPress={() => {
-            console.log('[Auth] Membuka jendela login Google...');
+            console.log('[Auth] Opening Google OAuth sign-in window...');
             setErrorMsg(null);
             setShowWebView(true);
           }}

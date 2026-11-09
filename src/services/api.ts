@@ -318,40 +318,40 @@ export const api = {
     },
 
     // GET {{baseUrl}}/api/auth/me
-    getMe: async (): Promise<StudentProfile> => {
-      return { ...STUDENT_PROFILE };
+    getMe: async (): Promise<any> => {
+      return requestApi<any>('/api/auth/me', 'GET', undefined, { ...STUDENT_PROFILE });
     },
 
     // GET {{baseUrl}}/api/mobile/auth/me
-    getMeMobile: async (): Promise<StudentProfile> => {
-      return { ...STUDENT_PROFILE };
+    getMeMobile: async (): Promise<any> => {
+      return requestApi<any>('/api/mobile/auth/me', 'GET', undefined, { ...STUDENT_PROFILE });
     },
 
     // POST {{baseUrl}}/api/auth/logout
     logout: async () => {
-      return { success: true };
+      return requestApi('/api/auth/logout', 'POST', undefined, { success: true });
     },
 
     // GET {{baseUrl}}/api/auth/session (NextAuth session)
     getSession: async () => {
-      return {
+      return requestApi('/api/auth/session', 'GET', undefined, {
         user: {
           name: STUDENT_PROFILE.fullName,
           email: STUDENT_PROFILE.email,
           role: 'student',
         },
         expires: new Date(Date.now() + 2592000 * 1000).toISOString(),
-      };
+      });
     },
 
     // GET {{baseUrl}}/api/auth/csrf
     getCsrf: async () => {
-      return { csrfToken: 'mock_csrf_token_' + Date.now() };
+      return requestApi('/api/auth/csrf', 'GET', undefined, { csrfToken: 'mock_csrf_token_' + Date.now() });
     },
 
     // GET {{baseUrl}}/api/auth/providers
     getProviders: async () => {
-      return {
+      return requestApi('/api/auth/providers', 'GET', undefined, {
         google: {
           id: 'google',
           name: 'Google',
@@ -359,16 +359,16 @@ export const api = {
           signinUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
           callbackUrl: 'https://learn.kreativaglobal.sch.id/api/auth/callback/google',
         },
-      };
+      });
     },
 
     // GET {{baseUrl}}/api/auth/impersonate?token={{impersonateToken}}
     impersonate: async (token: string) => {
-      return {
+      return requestApi(`/api/auth/impersonate?token=${encodeURIComponent(token)}`, 'GET', undefined, {
         success: true,
         accessToken: 'mock_impersonate_jwt_' + token,
         studentId: STUDENT_PROFILE.studentId,
-      };
+      });
     },
   },
 
@@ -378,23 +378,33 @@ export const api = {
   dashboard: {
     // GET {{baseUrl}}/api/dashboard
     getStats: async () => {
-      return {
-        activeCoursesCount: COURSES_DATA.length,
-        pendingAssignmentsCount: ASSIGNMENTS_DATA.filter((a) => a.status === 'pending').length,
-        upcomingExamsCount: EXAMS_DATA.filter((e) => e.status === 'upcoming').length,
-        totalPoints: STUDENT_PROFILE.points,
-      };
+      return requestApi(
+        '/api/dashboard',
+        'GET',
+        undefined,
+        {
+          activeCoursesCount: COURSES_DATA.length,
+          pendingAssignmentsCount: ASSIGNMENTS_DATA.filter((a) => a.status === 'pending').length,
+          upcomingExamsCount: EXAMS_DATA.filter((e) => e.status === 'upcoming').length,
+          totalPoints: STUDENT_PROFILE.points,
+        }
+      );
     },
 
     // GET {{baseUrl}}/api/academic-year
     getAcademicYear: async () => {
-      return {
-        academicYearId: 7,
-        name: 'Academic Year 7 2026/2027',
-        termId: 1,
-        termName: 'Term 1',
-        isCurrent: true,
-      };
+      return requestApi(
+        '/api/academic-year',
+        'GET',
+        undefined,
+        {
+          academicYearId: 7,
+          name: 'Academic Year 7 2026/2027',
+          termId: 1,
+          termName: 'Term 1',
+          isCurrent: true,
+        }
+      );
     },
   },
 
@@ -404,6 +414,21 @@ export const api = {
   profile: {
     // GET {{baseUrl}}/api/profile
     getProfile: async (): Promise<StudentProfile> => {
+      const res = await requestApi<any>('/api/profile', 'GET', undefined, STUDENT_PROFILE);
+      if (res && (res.fullName || res.email)) {
+        return {
+          ...STUDENT_PROFILE,
+          userId: res.userId || STUDENT_PROFILE.userId,
+          studentId: res.studentId || STUDENT_PROFILE.studentId,
+          schoolId: res.schoolId || STUDENT_PROFILE.schoolId,
+          fullName: res.fullName || STUDENT_PROFILE.fullName,
+          email: res.email || STUDENT_PROFILE.email,
+          schoolName: res.schoolName || STUDENT_PROFILE.schoolName,
+          className: res.className || STUDENT_PROFILE.className,
+          academicYearName: res.academicYear || STUDENT_PROFILE.academicYearName,
+          house: res.houseName || STUDENT_PROFILE.house,
+        };
+      }
       return { ...STUDENT_PROFILE };
     },
   },
@@ -414,59 +439,89 @@ export const api = {
   courses: {
     // GET {{baseUrl}}/api/courses
     list: async (): Promise<Course[]> => {
-      return [...COURSES_DATA];
+      return requestApi<Course[]>('/api/courses', 'GET', undefined, [...COURSES_DATA]);
     },
 
     // GET {{baseUrl}}/api/courses/{{courseId}}
     getCourse: async (courseId: number): Promise<Course> => {
       const found = COURSES_DATA.find((c) => c.id === courseId);
-      return found || COURSES_DATA[0];
+      return requestApi<Course>(`/api/courses/${courseId}`, 'GET', undefined, found || COURSES_DATA[0]);
     },
 
     // GET {{baseUrl}}/api/courses/{{courseId}}/sessions
     getSessions: async (courseId: number, courseName: string, totalSessions: number): Promise<CourseSession[]> => {
-      return getCourseSessions(courseId, courseName, totalSessions);
+      return requestApi<CourseSession[]>(
+        `/api/courses/${courseId}/sessions`,
+        'GET',
+        undefined,
+        getCourseSessions(courseId, courseName, totalSessions)
+      );
     },
 
     // GET {{baseUrl}}/api/sessions/{{sessionId}}
     getSessionDetail: async (session: CourseSession, course?: Course): Promise<CourseSessionDetail> => {
-      return getCourseSessionDetail(session, course);
+      return requestApi<CourseSessionDetail>(
+        `/api/sessions/${session.id}`,
+        'GET',
+        undefined,
+        getCourseSessionDetail(session, course)
+      );
     },
 
     // GET {{baseUrl}}/api/courses/{{courseId}}/assignments
     getAssignments: async (courseId: number): Promise<Assignment[]> => {
-      return ASSIGNMENTS_DATA.filter((a) => a.course.toLowerCase().includes(String(courseId)));
+      return requestApi<Assignment[]>(
+        `/api/courses/${courseId}/assignments`,
+        'GET',
+        undefined,
+        ASSIGNMENTS_DATA.filter((a) => a.course.toLowerCase().includes(String(courseId)))
+      );
     },
 
     // GET {{baseUrl}}/api/courses/{{courseId}}/quizzes
     getQuizzes: async (courseId: number): Promise<Quiz[]> => {
-      return QUIZZES_DATA.filter((q) => q.course.toLowerCase().includes(String(courseId)));
+      return requestApi<Quiz[]>(
+        `/api/courses/${courseId}/quizzes`,
+        'GET',
+        undefined,
+        QUIZZES_DATA.filter((q) => q.course.toLowerCase().includes(String(courseId)))
+      );
     },
 
     // GET {{baseUrl}}/api/courses/{{courseId}}/forums
     getForums: async (courseId: number) => {
-      return [
-        {
-          id: 1,
-          courseId,
-          title: 'Class Discussion Board',
-          postsCount: 4,
-          updatedAt: '2026-09-21',
-        },
-      ];
+      return requestApi<any[]>(
+        `/api/courses/${courseId}/forums`,
+        'GET',
+        undefined,
+        [
+          {
+            id: 1,
+            courseId,
+            title: 'Class Discussion Board',
+            postsCount: 4,
+            updatedAt: '2026-09-21',
+          },
+        ]
+      );
     },
 
     // GET {{baseUrl}}/api/calendar?start={{calendarStart}}&end={{calendarEnd}}
     getCalendar: async (start?: string, end?: string) => {
-      return [
-        {
-          id: 'cal-1',
-          title: 'Term 1 Midterm Assessment Week',
-          start: start || '2026-09-01T00:00:00.000Z',
-          end: end || '2026-10-01T00:00:00.000Z',
-          type: 'exam',
-        },
-      ];
+      return requestApi<any[]>(
+        `/api/calendar?start=${encodeURIComponent(start || '2026-09-01')}&end=${encodeURIComponent(end || '2026-10-01')}`,
+        'GET',
+        undefined,
+        [
+          {
+            id: 'cal-1',
+            title: 'Term 1 Midterm Assessment Week',
+            start: start || '2026-09-01T00:00:00.000Z',
+            end: end || '2026-10-01T00:00:00.000Z',
+            type: 'exam',
+          },
+        ]
+      );
     },
   },
 
@@ -476,7 +531,7 @@ export const api = {
   schedule: {
     // GET {{baseUrl}}/api/schedule
     getSchedule: async (): Promise<ScheduleItem[]> => {
-      return [...WEEKLY_SCHEDULE.Mon];
+      return requestApi<ScheduleItem[]>('/api/schedule', 'GET', undefined, [...WEEKLY_SCHEDULE.Mon]);
     },
   },
 
@@ -486,24 +541,29 @@ export const api = {
   assignments: {
     // GET {{baseUrl}}/api/assignments
     list: async (): Promise<Assignment[]> => {
-      return [...ASSIGNMENTS_DATA];
+      return requestApi<Assignment[]>('/api/assignments', 'GET', undefined, [...ASSIGNMENTS_DATA]);
     },
 
     // GET {{baseUrl}}/api/assignments/{{assignmentId}}
     getAssignment: async (assignmentId: number): Promise<Assignment> => {
       const found = ASSIGNMENTS_DATA.find((a) => a.id === assignmentId);
-      return found || ASSIGNMENTS_DATA[0];
+      return requestApi<Assignment>(`/api/assignments/${assignmentId}`, 'GET', undefined, found || ASSIGNMENTS_DATA[0]);
     },
 
     // POST {{baseUrl}}/api/assignments/{{assignmentId}}/submit
     submit: async (assignmentId: number, payload: { submissionText?: string; submissionUrl?: string }) => {
-      return {
-        success: true,
-        assignmentId,
-        submissionText: payload.submissionText || '',
-        submissionUrl: payload.submissionUrl || '',
-        submittedAt: new Date().toISOString(),
-      };
+      return requestApi(
+        `/api/assignments/${assignmentId}/submit`,
+        'POST',
+        payload,
+        {
+          success: true,
+          assignmentId,
+          submissionText: payload.submissionText || '',
+          submissionUrl: payload.submissionUrl || '',
+          submittedAt: new Date().toISOString(),
+        }
+      );
     },
   },
 
@@ -513,43 +573,43 @@ export const api = {
   quizzes: {
     // GET {{baseUrl}}/api/quizzes
     list: async (): Promise<Quiz[]> => {
-      return [...QUIZZES_DATA];
+      return requestApi<Quiz[]>('/api/quizzes', 'GET', undefined, [...QUIZZES_DATA]);
     },
 
     // GET {{baseUrl}}/api/quizzes/{{quizId}}
     getQuiz: async (quizId: number): Promise<Quiz> => {
       const found = QUIZZES_DATA.find((q) => q.id === quizId);
-      return found || QUIZZES_DATA[0];
+      return requestApi<Quiz>(`/api/quizzes/${quizId}`, 'GET', undefined, found || QUIZZES_DATA[0]);
     },
 
     // POST {{baseUrl}}/api/quizzes/{{quizId}}/start
     start: async (quizId: number) => {
-      return {
+      return requestApi(`/api/quizzes/${quizId}/start`, 'POST', undefined, {
         attemptId: 1,
         quizId,
         startedAt: new Date().toISOString(),
-      };
+      });
     },
 
     // POST {{baseUrl}}/api/quizzes/{{quizId}}/answer
     answer: async (quizId: number, payload: { attemptId: number; questionId: number; selectedOptionIds?: string; answerText?: string; answerNumeric?: number }) => {
-      return {
+      return requestApi(`/api/quizzes/${quizId}/answer`, 'POST', payload, {
         success: true,
         quizId,
         ...payload,
-      };
+      });
     },
 
     // POST {{baseUrl}}/api/quizzes/{{quizId}}/submit
     submit: async (quizId: number, payload: { attemptId: number; score?: number; timeSpent?: number }) => {
-      return {
+      return requestApi(`/api/quizzes/${quizId}/submit`, 'POST', payload, {
         success: true,
         quizId,
         attemptId: payload.attemptId,
         score: payload.score || 80,
         timeSpent: payload.timeSpent || 120,
         status: 'completed',
-      };
+      });
     },
   },
 
@@ -559,43 +619,43 @@ export const api = {
   exams: {
     // GET {{baseUrl}}/api/exams
     list: async (): Promise<ExamItem[]> => {
-      return [...EXAMS_DATA];
+      return requestApi<ExamItem[]>('/api/exams', 'GET', undefined, [...EXAMS_DATA]);
     },
 
     // GET {{baseUrl}}/api/exams/{{examId}}
     getExam: async (examId: string | number): Promise<ExamItem> => {
       const found = EXAMS_DATA.find((e) => String(e.id) === String(examId));
-      return found || EXAMS_DATA[0];
+      return requestApi<ExamItem>(`/api/exams/${examId}`, 'GET', undefined, found || EXAMS_DATA[0]);
     },
 
     // POST {{baseUrl}}/api/exams/{{examId}}/start
     start: async (examId: string | number) => {
-      return {
+      return requestApi(`/api/exams/${examId}/start`, 'POST', undefined, {
         attemptId: 1,
         examId,
         startedAt: new Date().toISOString(),
-      };
+      });
     },
 
     // POST {{baseUrl}}/api/exams/{{examId}}/answer
     answer: async (examId: string | number, payload: { attemptId: number; questionId: number; selectedOptionIds?: string }) => {
-      return {
+      return requestApi(`/api/exams/${examId}/answer`, 'POST', payload, {
         success: true,
         examId,
         ...payload,
-      };
+      });
     },
 
     // POST {{baseUrl}}/api/exams/{{examId}}/submit
     submit: async (examId: string | number, payload: { attemptId: number; score?: number; timeSpent?: number }) => {
-      return {
+      return requestApi(`/api/exams/${examId}/submit`, 'POST', payload, {
         success: true,
         examId,
         attemptId: payload.attemptId,
         score: payload.score || 85,
         timeSpent: payload.timeSpent || 180,
         status: 'completed',
-      };
+      });
     },
   },
 
@@ -605,12 +665,17 @@ export const api = {
   scores: {
     // GET {{baseUrl}}/api/scores
     getGrades: async (): Promise<SubjectGrade[]> => {
-      return [...GRADES_DATA];
+      return requestApi<SubjectGrade[]>('/api/scores', 'GET', undefined, [...GRADES_DATA]);
     },
 
     // GET {{baseUrl}}/api/scores/{{courseId}}
     getScoreByCourse: async (courseId: number): Promise<SubjectGrade | undefined> => {
-      return GRADES_DATA.find((g) => String(g.id) === String(courseId));
+      return requestApi<SubjectGrade | undefined>(
+        `/api/scores/${courseId}`,
+        'GET',
+        undefined,
+        GRADES_DATA.find((g) => String(g.id) === String(courseId))
+      );
     },
   },
 
@@ -711,7 +776,7 @@ export const api = {
   announcements: {
     // GET {{baseUrl}}/api/announcements
     list: async (): Promise<Announcement[]> => {
-      return [...ANNOUNCEMENTS_DATA];
+      return requestApi<Announcement[]>('/api/announcements', 'GET', undefined, [...ANNOUNCEMENTS_DATA]);
     },
 
     // POST {{baseUrl}}/api/announcements/{{announcementId}}/read
@@ -721,7 +786,11 @@ export const api = {
         target.read = true;
         target.isNew = false;
       }
-      return { success: true, announcementId, read: true };
+      return requestApi(`/api/announcements/${announcementId}/read`, 'POST', undefined, {
+        success: true,
+        announcementId,
+        read: true,
+      });
     },
   },
 
@@ -731,7 +800,7 @@ export const api = {
   resources: {
     // GET {{baseUrl}}/api/resources
     list: async () => {
-      return [
+      return requestApi<any[]>('/api/resources', 'GET', undefined, [
         {
           id: 1,
           title: 'Cambridge IGCSE Curriculum Guide 2026/2027',
@@ -748,7 +817,7 @@ export const api = {
           size: '1.2 MB',
           url: 'https://learn.kreativaglobal.sch.id/resources/code_of_conduct.pdf',
         },
-      ];
+      ]);
     },
   },
 
@@ -758,31 +827,42 @@ export const api = {
   notifications: {
     // GET {{baseUrl}}/api/notifications?limit=20&offset=0
     list: async (limit: number = 20, offset: number = 0) => {
-      return [
-        {
-          id: 1,
-          title: 'Assignment Deadline Reminder',
-          message: 'Civic Education Project due November 11, 2026.',
-          read: false,
-          createdAt: '2026-11-01',
-        },
-        {
-          id: 2,
-          title: 'Habit Log Awarded',
-          message: 'Full habit day logged! +2 points awarded.',
-          read: false,
-          createdAt: '2026-10-14',
-        },
-      ];
+      return requestApi<any[]>(
+        `/api/notifications?limit=${limit}&offset=${offset}`,
+        'GET',
+        undefined,
+        [
+          {
+            id: 1,
+            title: 'Assignment Deadline Reminder',
+            message: 'Civic Education Project due November 11, 2026.',
+            read: false,
+            createdAt: '2026-11-01',
+          },
+          {
+            id: 2,
+            title: 'Habit Log Awarded',
+            message: 'Full habit day logged! +2 points awarded.',
+            read: false,
+            createdAt: '2026-10-14',
+          },
+        ]
+      );
     },
 
     // GET {{baseUrl}}/api/notifications/unread-count
     unreadCount: async () => {
-      return { unreadCount: 2 };
+      return requestApi<{ unreadCount: number }>('/api/notifications/unread-count', 'GET', undefined, { unreadCount: 2 });
     },
 
     // POST {{baseUrl}}/api/notifications/read
     markRead: async (payload: { notificationId?: number; all?: boolean }) => {
+      return requestApi('/api/notifications/read', 'POST', payload, {
+        success: true,
+        ...payload,
+      });
+    },
+  },
       return {
         success: true,
         ...payload,
@@ -1057,32 +1137,42 @@ export const api = {
   points: {
     // GET {{baseUrl}}/api/student/points/summary?academicYearId={{academicYearId}}&termId={{termId}}
     getSummary: async (academicYearId: number = 7, termId: number = 1) => {
-      return {
-        total: STUDENT_PROFILE.points,
-        discipline: STUDENT_PROFILE.disciplinePts,
-        literacy: STUDENT_PROFILE.literacyPts,
-        habits: STUDENT_PROFILE.habitsPts,
-      };
+      return requestApi(
+        `/api/student/points/summary?academicYearId=${academicYearId}&termId=${termId}`,
+        'GET',
+        undefined,
+        {
+          total: STUDENT_PROFILE.points,
+          discipline: STUDENT_PROFILE.disciplinePts,
+          literacy: STUDENT_PROFILE.literacyPts,
+          habits: STUDENT_PROFILE.habitsPts,
+        }
+      );
     },
 
     // GET {{baseUrl}}/api/student/points/history
     getHistory: async () => {
-      return [
-        {
-          id: 'pt_hist_1',
-          title: 'To Kill a Mockingbird',
-          date: 'October 22, 2026',
-          points: 3,
-          category: 'literacy',
-        },
-        {
-          id: 'pt_hist_2',
-          title: 'Habit full day (≥5 categories checked)',
-          date: 'October 14, 2026',
-          points: 2,
-          category: 'habits',
-        },
-      ];
+      return requestApi(
+        '/api/student/points/history',
+        'GET',
+        undefined,
+        [
+          {
+            id: 'pt_hist_1',
+            title: 'To Kill a Mockingbird',
+            date: 'October 22, 2026',
+            points: 3,
+            category: 'literacy',
+          },
+          {
+            id: 'pt_hist_2',
+            title: 'Habit full day (≥5 categories checked)',
+            date: 'October 14, 2026',
+            points: 2,
+            category: 'habits',
+          },
+        ]
+      );
     },
   },
 
@@ -1092,17 +1182,32 @@ export const api = {
   leaderboard: {
     // GET {{baseUrl}}/api/leaderboard/houses?academicYearId={{academicYearId}}&termId={{termId}}&houseId=
     getHouses: async (academicYearId: number = 7, termId: number = 1): Promise<LeaderboardHouse[]> => {
-      return [...LEADERBOARD_HOUSES];
+      return requestApi<LeaderboardHouse[]>(
+        `/api/leaderboard/houses?academicYearId=${academicYearId}&termId=${termId}`,
+        'GET',
+        undefined,
+        [...LEADERBOARD_HOUSES]
+      );
     },
 
     // GET {{baseUrl}}/api/leaderboard/class?classId={{classId}}&academicYearId={{academicYearId}}&termId={{termId}}
     getClass: async (classId: number = 99, academicYearId: number = 7, termId: number = 1): Promise<LeaderboardStudent[]> => {
-      return [...LEADERBOARD_CLASS];
+      return requestApi<LeaderboardStudent[]>(
+        `/api/leaderboard/class?classId=${classId}&academicYearId=${academicYearId}&termId=${termId}`,
+        'GET',
+        undefined,
+        [...LEADERBOARD_CLASS]
+      );
     },
 
     // GET {{baseUrl}}/api/leaderboard/jenjang?schoolLevel=high_school_igcse&academicYearId={{academicYearId}}&termId={{termId}}
     getJenjang: async (schoolLevel: string = 'high_school_igcse', academicYearId: number = 7, termId: number = 1): Promise<LeaderboardStudent[]> => {
-      return [...LEADERBOARD_JENJANG];
+      return requestApi<LeaderboardStudent[]>(
+        `/api/leaderboard/jenjang?schoolLevel=${encodeURIComponent(schoolLevel)}&academicYearId=${academicYearId}&termId=${termId}`,
+        'GET',
+        undefined,
+        [...LEADERBOARD_JENJANG]
+      );
     },
   },
 
