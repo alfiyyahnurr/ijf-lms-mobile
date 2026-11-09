@@ -10,7 +10,7 @@ export interface StudentProfile {
   classId: number;
   className: string;
   academicYearName: string;
-  house: string;
+  house: string | null;
   points: number;
   disciplinePts: number;
   literacyPts: number;
@@ -180,7 +180,7 @@ export interface LeaderboardStudent {
   rank: number;
   name: string;
   class?: string;
-  house: string;
+  house: string | null;
   points: number;
   disciplinePts?: number;
   literacyPts?: number;

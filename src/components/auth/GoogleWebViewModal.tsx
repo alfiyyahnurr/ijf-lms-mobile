@@ -240,7 +240,7 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
       token: payload?.accessToken || payload?.token || undefined,
       schoolName: detailedProfile.schoolName || userObj.schoolName || matched.schoolName || 'Kreativa Global High School',
       className: detailedProfile.className || userObj.className || matched.className || 'S4 Oxford',
-      house: detailedProfile.houseName || userObj.house || matched.house || 'Falcon',
+      house: detailedProfile.houseName || userObj.house || matched.house || null,
       academicYearName: detailedProfile.academicYear || userObj.academicYearName || '2026/2027',
     };
 

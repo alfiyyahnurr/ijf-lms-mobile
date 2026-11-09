@@ -170,8 +170,8 @@ export const DashboardScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.houseName}>{studentProfile.house}</Text>
-          <Text style={styles.houseDesc}>No house ranking yet</Text>
+          <Text style={styles.houseName}>{studentProfile.house || 'No House Assigned'}</Text>
+          <Text style={styles.houseDesc}>{studentProfile.house ? 'No house ranking yet' : 'Not assigned to any house'}</Text>
         </Card>
 
         {/* Upcoming Sessions Card matching Web */}

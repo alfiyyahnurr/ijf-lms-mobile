@@ -153,7 +153,7 @@ export const REGISTERED_STUDENTS_DB: Record<string, any> = {
     role: 'student',
     schoolName: 'Kreativa Global High School',
     className: 'S4 Oxford',
-    house: 'Falcon',
+    house: null,
     studentCode: '5243234',
   },
   'nralfiyyahrach@gmail.com': {
@@ -165,7 +165,7 @@ export const REGISTERED_STUDENTS_DB: Record<string, any> = {
     role: 'student',
     schoolName: 'Kreativa Global School',
     className: 'Grade 7-A (Cambridge Lower Secondary)',
-    house: 'Falcon',
+    house: null,
     studentCode: 'KGS-2602',
   },
   'irvanadrian151@gmail.com': {
@@ -177,7 +177,7 @@ export const REGISTERED_STUDENTS_DB: Record<string, any> = {
     role: 'student',
     schoolName: 'Kreativa Global High School',
     className: 'Secondary 4 - S4 A',
-    house: 'Falcon',
+    house: null,
     studentCode: 'KGH-2602',
   },
   'erwin.selamet@indonesiajuara.id': {
@@ -189,7 +189,7 @@ export const REGISTERED_STUDENTS_DB: Record<string, any> = {
     role: 'student',
     schoolName: 'Kreativa Global High School',
     className: 'Secondary 4 - S4 A',
-    house: 'Eagle',
+    house: null,
     studentCode: 'KGH-2597',
   },
   'tania@cnt.id': {
@@ -201,7 +201,7 @@ export const REGISTERED_STUDENTS_DB: Record<string, any> = {
     role: 'student',
     schoolName: 'Kreativa Global School',
     className: 'Grade 7-A',
-    house: 'Falcon',
+    house: null,
     studentCode: 'KGS-2568',
   },
   'fatih@learn.kreativaglobal.sch.id': {
@@ -213,7 +213,7 @@ export const REGISTERED_STUDENTS_DB: Record<string, any> = {
     role: 'student',
     schoolName: 'Kreativa Global School',
     className: 'Grade 7-A (Cambridge Lower Secondary)',
-    house: 'Falcon',
+    house: null,
     studentCode: '0089217364',
   },
   'fatih.alamsyah@learn.kreativaglobal.sch.id': {
@@ -225,7 +225,7 @@ export const REGISTERED_STUDENTS_DB: Record<string, any> = {
     role: 'student',
     schoolName: 'Kreativa Global School',
     className: 'Grade 7-A (Cambridge Lower Secondary)',
-    house: 'Falcon',
+    house: null,
     studentCode: '0089217364',
   },
 };

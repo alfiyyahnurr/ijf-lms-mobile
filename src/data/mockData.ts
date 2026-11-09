@@ -32,7 +32,7 @@ export const STUDENT_PROFILE: StudentProfile = {
   classId: 99,
   className: "S4 Oxford",
   academicYearName: "Academic Year 7",
-  house: "Falcon",
+  house: null,
   points: 14,
   disciplinePts: 0,
   literacyPts: 6,

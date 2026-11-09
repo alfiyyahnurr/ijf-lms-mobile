@@ -51,7 +51,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
         role: userData?.role || 'student',
         schoolName: userData?.schoolName || 'Kreativa Global High School',
         className: userData?.className || 'S4 Oxford',
-        house: userData?.house || 'Falcon',
+        house: userData?.house ?? null,
         academicYearName: userData?.academicYearName || '2026/2027',
       };
 
