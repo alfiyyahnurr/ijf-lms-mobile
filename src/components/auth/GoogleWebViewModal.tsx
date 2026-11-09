@@ -71,15 +71,6 @@ const INJECTED_JAVASCRIPT = `
     }
   }, true);
 
-  // 4. On LMS login page, clean any residual cookies so no stale session can auto-login
-  if (window.location.hostname === 'learn.kreativaglobal.sch.id' && (window.location.pathname || '').indexOf('/login') !== -1) {
-    if (document.cookie) {
-      document.cookie.split(';').forEach(function(c) {
-        document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
-      });
-    }
-  }
-
   var authSent = false;
   function notifyAuthSuccess(payload) {
     if (authSent) return;
@@ -98,7 +89,7 @@ const INJECTED_JAVASCRIPT = `
     if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'AUTH_ERROR',
-        message: msg || 'Your account is not registered. Please contact your school administrator to get access.'
+        message: msg || 'Akun Google ini belum terdaftar di Kreativa LMS. Silakan hubungi admin sekolah untuk mendapatkan akses.'
       }));
     }
   }
@@ -111,9 +102,15 @@ const INJECTED_JAVASCRIPT = `
     var path = window.location.pathname || '';
     var search = window.location.search || '';
 
-    // Error detection (unregistered account)
-    if (search.indexOf('error=') !== -1 || href.indexOf('error=') !== -1) {
-      notifyAuthError();
+    // Error detection: Only AccessDenied means the email is rejected in database
+    if (search.indexOf('error=AccessDenied') !== -1 || href.indexOf('error=AccessDenied') !== -1) {
+      notifyAuthError('Akun Google ini belum terdaftar di Kreativa LMS. Silakan hubungi admin sekolah untuk mendapatkan akses.');
+      return;
+    } else if (search.indexOf('error=') !== -1 || href.indexOf('error=') !== -1) {
+      // Transient post-logout error (e.g. OAuthSignin / OAuthCallback): auto-recover without alarming user
+      if (path.indexOf('/login') !== -1 && !authSent) {
+        window.location.replace('/login');
+      }
       return;
     }
 
@@ -160,9 +157,10 @@ const INJECTED_JAVASCRIPT = `
   setInterval(checkSession, 350);
 
   // Auto-click the Google sign-in button ONLY on the LMS web login page (learn.kreativaglobal.sch.id)
+  var googleClicked = false;
   function autoClickGoogle() {
+    if (googleClicked) return true;
     var host = window.location.hostname || '';
-    // STRICT GUARD: NEVER click anything on Google accounts page (user MUST manually choose account!)
     if (host !== 'learn.kreativaglobal.sch.id') {
       return false;
     }
@@ -177,7 +175,11 @@ const INJECTED_JAVASCRIPT = `
       for (var i = 0; i < buttons.length; i++) {
         var text = (buttons[i].textContent || '').toLowerCase();
         if (text.indexOf('google') !== -1 || buttons[i].querySelector('svg')) {
-          buttons[i].click();
+          googleClicked = true;
+          // Stable 250ms delay to let Next.js hydrate event listeners
+          setTimeout(function() {
+            buttons[i].click();
+          }, 250);
           return true;
         }
       }
@@ -185,12 +187,11 @@ const INJECTED_JAVASCRIPT = `
     return false;
   }
 
-  autoClickGoogle();
   var clickInterval = setInterval(function() {
     if (autoClickGoogle()) {
       clearInterval(clickInterval);
     }
-  }, 40);
+  }, 100);
 })();
 true;
 `;
@@ -347,8 +348,8 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
       return true;
     }
 
-    // If error detected (e.g. unregistered account), auto-logout Google so user can enter another account
-    if (url.includes('error=')) {
+    // If error detected: only AccessDenied means genuine unregistered account
+    if (url.includes('error=AccessDenied')) {
       if (!authCompletedRef.current) {
         authCompletedRef.current = true;
         webViewRef.current?.injectJavaScript(`
@@ -360,6 +361,16 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
             'Akun Google ini belum terdaftar di Kreativa LMS. Silakan hubungi admin sekolah untuk mendapatkan akses.'
           );
         }, 600);
+      }
+      return false;
+    } else if (url.includes('error=')) {
+      // Transient post-logout OAuth error (e.g. OAuthSignin/OAuthCallback). Auto-recover cleanly without showing error popup
+      if (!authCompletedRef.current) {
+        console.log('[Auth Action] Transient post-logout OAuth error in URL, auto-recovering...');
+        webViewRef.current?.injectJavaScript(`
+          window.location.replace('${LOGIN_URL}');
+          true;
+        `);
       }
       return false;
     }
@@ -388,7 +399,7 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
     }
 
     // Handle authentication error
-    if (url.includes('error=')) {
+    if (url.includes('error=AccessDenied')) {
       if (!authCompletedRef.current) {
         authCompletedRef.current = true;
         webViewRef.current?.injectJavaScript(`
@@ -400,6 +411,14 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
             'Akun Google ini belum terdaftar di Kreativa LMS. Silakan hubungi admin sekolah untuk mendapatkan akses.'
           );
         }, 600);
+      }
+    } else if (url.includes('error=')) {
+      if (!authCompletedRef.current) {
+        console.log('[Auth Action] Transient post-logout OAuth error in navigation, auto-recovering...');
+        webViewRef.current?.injectJavaScript(`
+          window.location.replace('${LOGIN_URL}');
+          true;
+        `);
       }
     }
   };

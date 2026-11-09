@@ -28,7 +28,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [showWebView, setShowWebView] = useState(false);
 
   const { setStudentProfile } = useStudentData();
-  const { saveSession, loginWithGoogle, hasLoggedOut } = useAuth();
+  const { saveSession, loginWithGoogle, hasLoggedOut, setHasLoggedOut } = useAuth();
 
   // Handles successful authentication from the In-App WebView Bridge
   const handleAuthSuccess = async (userData: any) => {
@@ -63,6 +63,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
       // 2. Persist session token and student profile permanently to native device storage
       await saveSession(token, profileData);
+      setHasLoggedOut(false);
     } catch (err: any) {
       console.error('[Auth Error] Authentication error:', err?.message || err);
     } finally {
