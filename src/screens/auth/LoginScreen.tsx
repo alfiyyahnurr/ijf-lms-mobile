@@ -109,16 +109,16 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar style="light" />
 
-      {/* Ambient Decorative Spheres / Circles */}
-      <View style={styles.ambientSphereTopLeft} />
-      <View style={styles.ambientSphereMiddleRight} />
-      <View style={styles.ambientSphereBottomCenter} />
+      {/* Decorative Circles: Exact positions & dimensions from Web LMS */}
+      <View style={styles.circleTopLeft} />
+      <View style={styles.circleBottomRight} />
+      <View style={styles.circleTopRight} />
 
       {/* Main Centered Content */}
       <View style={styles.centerContainer}>
-        {/* Kreativa Global School Shield Logo with 4 Quadrants */}
+        {/* Kreativa Global School Shield Logo */}
         <View style={styles.logoWrapper}>
-          <KreativaLogo size={85} showText={true} />
+          <KreativaLogo size={96} showText={true} />
         </View>
 
         {/* Welcome Title */}
@@ -129,14 +129,14 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           Access your courses, assignments, and academic progress seamlessly.
         </Text>
 
-        {/* Error Feedback Message (if any) */}
+        {/* Error Feedback Message: Frosted glass banner matching Web LMS */}
         {errorMsg ? (
           <View style={styles.errorBanner}>
             <Text style={styles.errorText}>{errorMsg}</Text>
           </View>
         ) : null}
 
-        {/* White Rounded Google Sign-In Pill Button (Opens In-App WebView Bridge) */}
+        {/* White Rounded Google Sign-In Pill Button */}
         <TouchableOpacity
           style={[styles.googleButton, loading && styles.googleButtonDisabled]}
           activeOpacity={0.88}
@@ -149,7 +149,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           accessibilityLabel="Sign in with Google"
         >
           {loading ? (
-            <ActivityIndicator size="small" color="#4F089F" />
+            <ActivityIndicator size="small" color="#5001b2" />
           ) : (
             <View style={styles.buttonContent}>
               <GoogleIcon size={20} />
@@ -173,7 +173,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       {/* Academic Copyright Footer */}
       <View style={styles.footerWrap}>
         <Text style={styles.footerText}>
-          © 2026 Kreativa Learning Management System
+          © {new Date().getFullYear()} Kreativa Learning Management System
         </Text>
       </View>
 
@@ -192,99 +192,102 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#4F089F', // Brand Royal Deep Violet
+    backgroundColor: '#5001b2', // Official Web LMS theme.secondaryColor
     position: 'relative',
     overflow: 'hidden',
     justifyContent: 'space-between',
   },
-  /* --- AMBIENT PURPLE SPHERES --- */
-  ambientSphereTopLeft: {
+  /* --- 3 DECORATIVE CIRCLES: Exact dimensions and positions from Web LMS --- */
+  circleTopLeft: {
     position: 'absolute',
-    top: 50,
-    left: 20,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    top: 80,
+    left: 40,
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
   },
-  ambientSphereMiddleRight: {
+  circleBottomRight: {
     position: 'absolute',
-    top: '38%',
-    right: 25,
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    bottom: 128,
+    right: 32,
+    width: 192,
+    height: 192,
+    borderRadius: 96,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
   },
-  ambientSphereBottomCenter: {
+  circleTopRight: {
     position: 'absolute',
-    bottom: 40,
-    left: '20%',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    top: 160,
+    right: 48,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   /* --- CENTER WRAPPER --- */
   centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
     zIndex: 10,
   },
   logoWrapper: {
-    marginBottom: 24,
+    marginBottom: 32,
     alignItems: 'center',
   },
   title: {
-    fontSize: 25,
+    fontSize: 24,
     fontFamily: FONTS.title,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
-    letterSpacing: -0.4,
     marginBottom: 12,
   },
   subtitle: {
     fontSize: 14,
     fontFamily: FONTS.regular,
-    color: 'rgba(255, 255, 255, 0.82)',
+    color: 'rgba(255, 255, 255, 0.80)',
     textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: 320,
-    marginBottom: 36,
+    lineHeight: 20,
+    maxWidth: 340,
+    marginBottom: 40,
   },
+  /* --- ERROR BANNER: Frosted glass bg-white/10 border-white/20 --- */
   errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.25)',
-    borderColor: 'rgba(239, 68, 68, 0.6)',
+    width: '100%',
+    maxWidth: 384,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    borderColor: 'rgba(255, 255, 255, 0.20)',
     borderRadius: 12,
-    marginBottom: 20,
-    maxWidth: 320,
-    alignSelf: 'center',
+    padding: 16,
+    marginBottom: 16,
   },
   errorText: {
     fontFamily: FONTS.medium,
-    fontSize: 13,
+    fontSize: 14,
     color: '#FFFFFF',
     textAlign: 'center',
+    lineHeight: 20,
   },
+  /* --- GOOGLE BUTTON: Full pill rounded-full, px-6 py-4, shadow-lg --- */
   googleButton: {
     width: '100%',
-    maxWidth: 340,
-    height: 56,
+    maxWidth: 384,
     backgroundColor: '#FFFFFF',
-    borderRadius: 9999, // 100% full pill capsule
+    borderRadius: 9999,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 10,
+    elevation: 6,
   },
   googleButtonDisabled: {
     opacity: 0.7,
@@ -293,14 +296,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
   },
   buttonText: {
-    fontSize: 15.5,
-    fontFamily: FONTS.semiBold,
-    fontWeight: '600',
-    color: '#1E293B',
-    letterSpacing: 0.1,
+    fontSize: 16,
+    fontFamily: FONTS.medium,
+    fontWeight: '500',
+    color: '#0F172A',
+    marginLeft: 12,
   },
   testLink: {
     marginTop: 18,
@@ -310,18 +312,19 @@ const styles = StyleSheet.create({
   testLinkText: {
     fontFamily: FONTS.regular,
     fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.55)',
+    color: 'rgba(255, 255, 255, 0.50)',
     textAlign: 'center',
   },
   footerWrap: {
-    paddingVertical: 18,
+    marginTop: 32,
+    marginBottom: 16,
     alignItems: 'center',
     zIndex: 10,
   },
   footerText: {
     fontSize: 12,
     fontFamily: FONTS.regular,
-    color: 'rgba(255, 255, 255, 0.65)',
+    color: 'rgba(255, 255, 255, 0.60)',
     fontWeight: '400',
     textAlign: 'center',
   },

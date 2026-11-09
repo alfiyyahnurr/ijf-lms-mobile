@@ -89,7 +89,7 @@ const INJECTED_JAVASCRIPT = `
     if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'AUTH_ERROR',
-        message: msg || 'Akun Google ini belum terdaftar di Kreativa LMS. Silakan hubungi admin sekolah untuk mendapatkan akses.'
+        message: msg || 'Your account is not registered. Please contact your school administrator to get access.'
       }));
     }
   }
@@ -104,7 +104,7 @@ const INJECTED_JAVASCRIPT = `
 
     // Error detection: Only AccessDenied means the email is rejected in database
     if (search.indexOf('error=AccessDenied') !== -1 || href.indexOf('error=AccessDenied') !== -1) {
-      notifyAuthError('Akun Google ini belum terdaftar di Kreativa LMS. Silakan hubungi admin sekolah untuk mendapatkan akses.');
+      notifyAuthError('Your account is not registered. Please contact your school administrator to get access.');
       return;
     } else if (search.indexOf('error=') !== -1 || href.indexOf('error=') !== -1) {
       // Transient post-logout error (e.g. OAuthSignin / OAuthCallback): auto-recover without alarming user
@@ -358,7 +358,7 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
         `);
         setTimeout(() => {
           onError(
-            'Akun Google ini belum terdaftar di Kreativa LMS. Silakan hubungi admin sekolah untuk mendapatkan akses.'
+            'Your account is not registered. Please contact your school administrator to get access.'
           );
         }, 600);
       }
@@ -408,7 +408,7 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
         `);
         setTimeout(() => {
           onError(
-            'Akun Google ini belum terdaftar di Kreativa LMS. Silakan hubungi admin sekolah untuk mendapatkan akses.'
+            'Your account is not registered. Please contact your school administrator to get access.'
           );
         }, 600);
       }
@@ -462,7 +462,7 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
         authCompletedRef.current = true;
         onError(
           data.message ||
-            'Akun Google ini belum terdaftar di Kreativa LMS. Silakan hubungi admin sekolah.'
+            'Your account is not registered. Please contact your school administrator to get access.'
         );
       }
     } catch {
