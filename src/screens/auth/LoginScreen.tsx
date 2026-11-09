@@ -79,32 +79,6 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     setErrorMsg(errorMessage);
   };
 
-  // Quick fallback/simulation login for development
-  const handleSimulatedSignIn = async () => {
-    setLoading(true);
-    setErrorMsg(null);
-    try {
-      const authResult = await loginWithGoogle('mock_google_student_access_token');
-      if (authResult?.accessToken) {
-        setStudentProfile((prev) => ({
-          ...prev,
-          userId: authResult.user?.userId || prev.userId,
-          studentId: authResult.user?.studentId || prev.studentId,
-          schoolId: authResult.user?.schoolId || prev.schoolId,
-          fullName: authResult.user?.fullName || prev.fullName,
-          email: authResult.user?.email || prev.email,
-        }));
-        navigation.replace('MainDrawer');
-      } else {
-        throw new Error('This API is for student accounts only.');
-      }
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to authenticate with Google. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar style="light" />
@@ -156,17 +130,6 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.buttonText}>Sign in with Google</Text>
             </View>
           )}
-        </TouchableOpacity>
-
-        {/* Quick Simulation Mode Link for Dev / Testing */}
-        <TouchableOpacity
-          style={styles.testLink}
-          onPress={handleSimulatedSignIn}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.testLinkText}>
-            [Simulation Mode: Quick Student Login]
-          </Text>
         </TouchableOpacity>
       </View>
 
@@ -303,17 +266,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#0F172A',
     marginLeft: 12,
-  },
-  testLink: {
-    marginTop: 18,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  testLinkText: {
-    fontFamily: FONTS.regular,
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.50)',
-    textAlign: 'center',
   },
   footerWrap: {
     marginTop: 32,
