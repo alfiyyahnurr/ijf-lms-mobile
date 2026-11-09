@@ -266,12 +266,6 @@ export const CustomDrawerContent: React.FC<DrawerContentComponentProps> = ({
                     onPress={async () => {
                       setConfirmLogout(false);
                       await logout();
-                      const parentNav = navigation.getParent() as any;
-                      if (parentNav?.navigate) {
-                        parentNav.navigate('Login');
-                      } else {
-                        (navigation as any).navigate('Login');
-                      }
                     }}
                     activeOpacity={0.8}
                   >

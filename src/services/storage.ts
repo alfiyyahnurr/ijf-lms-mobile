@@ -1,4 +1,5 @@
-import { Platform } from 'react-native';
+import { Platform, NativeModules } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEYS = {
   AUTH_TOKEN: 'kreativa_lms_auth_token',
@@ -6,17 +7,56 @@ const STORAGE_KEYS = {
   SESSION_TIMESTAMP: 'kreativa_lms_session_timestamp',
 };
 
+// Direct native bridge in Expo Go (Android/iOS)
+const RNC =
+  NativeModules.RNCAsyncStorage ||
+  NativeModules.RNC_AsyncSQLiteDBStorage ||
+  NativeModules.PlatformLocalStorage;
+
+const nativeMultiGet = (key: string): Promise<string | null> => {
+  return new Promise((resolve) => {
+    if (RNC?.multiGet) {
+      RNC.multiGet([key], (errors: any, result: any) => {
+        if (!errors && result && result[0]) {
+          resolve(result[0][1]);
+        } else {
+          resolve(null);
+        }
+      });
+    } else {
+      resolve(null);
+    }
+  });
+};
+
+const nativeMultiSet = (key: string, value: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (RNC?.multiSet) {
+      RNC.multiSet([[key, value]], (errors: any) => {
+        if (!errors) {
+          resolve();
+        } else {
+          reject(errors[0]);
+        }
+      });
+    } else {
+      resolve();
+    }
+  });
+};
+
+const nativeMultiRemove = (key: string): Promise<void> => {
+  return new Promise((resolve) => {
+    if (RNC?.multiRemove) {
+      RNC.multiRemove([key], () => resolve());
+    } else {
+      resolve();
+    }
+  });
+};
+
 // In-memory fallback cache
 const memoryStorage: Record<string, string> = {};
-
-// Safe AsyncStorage dynamic loader (works even if package is not yet natively linked)
-let nativeAsyncStorage: any = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  nativeAsyncStorage = require('@react-native-async-storage/async-storage')?.default || null;
-} catch {
-  nativeAsyncStorage = null;
-}
 
 export const storage = {
   async getItem(key: string): Promise<string | null> {
@@ -24,42 +64,72 @@ export const storage = {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
         return window.localStorage.getItem(key);
       }
-      if (nativeAsyncStorage) {
-        return await nativeAsyncStorage.getItem(key);
+      // 1. Try standard AsyncStorage
+      const val = await AsyncStorage.getItem(key);
+      if (val !== null && val !== undefined) return val;
+
+      // 2. Try direct native module
+      if (RNC?.multiGet) {
+        const nativeVal = await nativeMultiGet(key);
+        if (nativeVal !== null && nativeVal !== undefined) return nativeVal;
       }
+
       return memoryStorage[key] || null;
     } catch {
+      // 3. Fallback to direct native module if AsyncStorage threw
+      if (RNC?.multiGet) {
+        try {
+          const nativeVal = await nativeMultiGet(key);
+          if (nativeVal !== null) return nativeVal;
+        } catch {
+          // ignore
+        }
+      }
       return memoryStorage[key] || null;
     }
   },
 
   async setItem(key: string, value: string): Promise<void> {
+    memoryStorage[key] = value;
     try {
-      memoryStorage[key] = value;
       if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(key, value);
         return;
       }
-      if (nativeAsyncStorage) {
-        await nativeAsyncStorage.setItem(key, value);
+
+      // Try AsyncStorage
+      try {
+        await AsyncStorage.setItem(key, value);
+      } catch {
+        // If AsyncStorage threw, save via direct native module
       }
-    } catch {
-      memoryStorage[key] = value;
+
+      // Guarantee persistence through native module in Expo Go
+      if (RNC?.multiSet) {
+        await nativeMultiSet(key, value);
+      }
+    } catch (err: any) {
+      console.error('[Storage Error] setItem:', err?.message || err);
     }
   },
 
   async removeItem(key: string): Promise<void> {
+    delete memoryStorage[key];
     try {
-      delete memoryStorage[key];
       if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.removeItem(key);
         return;
       }
-      if (nativeAsyncStorage) {
-        await nativeAsyncStorage.removeItem(key);
+      try {
+        await AsyncStorage.removeItem(key);
+      } catch {
+        // ignore
       }
-    } catch {
-      delete memoryStorage[key];
+      if (RNC?.multiRemove) {
+        await nativeMultiRemove(key);
+      }
+    } catch (err: any) {
+      console.error('[Storage Error] removeItem:', err?.message || err);
     }
   },
 
@@ -72,13 +142,9 @@ export const storage = {
         window.localStorage.removeItem(STORAGE_KEYS.SESSION_TIMESTAMP);
         return;
       }
-      if (nativeAsyncStorage) {
-        await nativeAsyncStorage.multiRemove([
-          STORAGE_KEYS.AUTH_TOKEN,
-          STORAGE_KEYS.STUDENT_PROFILE,
-          STORAGE_KEYS.SESSION_TIMESTAMP,
-        ]);
-      }
+      await AsyncStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+      await AsyncStorage.removeItem(STORAGE_KEYS.STUDENT_PROFILE);
+      await AsyncStorage.removeItem(STORAGE_KEYS.SESSION_TIMESTAMP);
     } catch {
       // Ignore clear errors
     }
@@ -86,7 +152,13 @@ export const storage = {
 
   // --- Specialized Session Helpers ---
   async getAuthToken(): Promise<string | null> {
-    return this.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    const token = await this.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    if (!token || typeof token !== 'string') return null;
+    const trimmed = token.trim();
+    if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') {
+      return null;
+    }
+    return trimmed;
   },
 
   async setAuthToken(token: string): Promise<void> {
@@ -99,9 +171,17 @@ export const storage = {
 
   async getStudentSession(): Promise<any | null> {
     const raw = await this.getItem(STORAGE_KEYS.STUDENT_PROFILE);
-    if (!raw) return null;
+    if (!raw || typeof raw !== 'string') return null;
+    const trimmed = raw.trim();
+    if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') {
+      return null;
+    }
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(trimmed);
+      if (!parsed || (!parsed.email && !parsed.studentId && !parsed.userId)) {
+        return null;
+      }
+      return parsed;
     } catch {
       return null;
     }
@@ -113,6 +193,23 @@ export const storage = {
   },
 
   async clearAllSession(): Promise<void> {
+    // 1. Wipe in-memory storage immediately
+    delete memoryStorage[STORAGE_KEYS.AUTH_TOKEN];
+    delete memoryStorage[STORAGE_KEYS.STUDENT_PROFILE];
+    delete memoryStorage[STORAGE_KEYS.SESSION_TIMESTAMP];
+
+    // 2. Overwrite with empty string in native SQLite so no stale value lingers
+    try {
+      if (RNC?.multiSet) {
+        await nativeMultiSet(STORAGE_KEYS.AUTH_TOKEN, '');
+        await nativeMultiSet(STORAGE_KEYS.STUDENT_PROFILE, '');
+        await nativeMultiSet(STORAGE_KEYS.SESSION_TIMESTAMP, '');
+      }
+    } catch {
+      // ignore
+    }
+
+    // 3. Remove keys from native storage and AsyncStorage
     await this.removeItem(STORAGE_KEYS.AUTH_TOKEN);
     await this.removeItem(STORAGE_KEYS.STUDENT_PROFILE);
     await this.removeItem(STORAGE_KEYS.SESSION_TIMESTAMP);

@@ -71,12 +71,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     setUserMenuVisible(false);
     setConfirmLogoutVisible(false);
     await logout();
-    const parentNav = navigation.getParent() as any;
-    if (parentNav?.navigate) {
-      parentNav.navigate('Login');
-    } else {
-      (navigation as any).navigate('Login');
-    }
   };
 
   return (

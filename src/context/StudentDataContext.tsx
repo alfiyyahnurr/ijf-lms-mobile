@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   StudentProfile,
   LeaderboardStudent,
@@ -35,6 +35,7 @@ import {
   getWeeklyPlanForWeek,
 } from '../data/mockData';
 import { api } from '../services/api';
+import storage from '../services/storage';
 
 // Helper to format consistent date key: YYYY-MM-DD
 export const formatDateKey = (year: number, month: number, day: number): string => {
@@ -217,6 +218,25 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   // Student Profile State (starts with D 0, L 6, H 8 -> 14 pts)
   const [studentProfile, setStudentProfile] = useState<StudentProfile>(STUDENT_PROFILE);
+
+  // Restore saved student profile from persistent storage on app startup
+  useEffect(() => {
+    storage
+      .getStudentSession()
+      .then((saved) => {
+        if (saved) {
+          setStudentProfile((prev) => ({
+            ...prev,
+            userId: saved.userId ?? prev.userId,
+            studentId: saved.studentId ?? prev.studentId,
+            schoolId: saved.schoolId ?? prev.schoolId,
+            fullName: saved.fullName ?? prev.fullName,
+            email: saved.email ?? prev.email,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // House Leaderboard State (7 houses, dynamic points and breakdown)
   const [houseLeaderboard, setHouseLeaderboard] = useState<LeaderboardHouse[]>([...LEADERBOARD_HOUSES]);

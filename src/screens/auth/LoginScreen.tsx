@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,8 +12,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../../types/navigation';
 import KreativaLogo from '../../components/common/KreativaLogo';
 import GoogleIcon from '../../components/common/GoogleIcon';
+import GoogleWebViewModal from '../../components/auth/GoogleWebViewModal';
 import { FONTS } from '../../constants/theme';
-
+import { useStudentData } from '../../context/StudentDataContext';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 
 interface Props {
@@ -24,15 +25,70 @@ interface Props {
 export const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const { width } = useWindowDimensions();
+  const [showWebView, setShowWebView] = useState(false);
 
-  const handleGoogleSignIn = async () => {
+  const { setStudentProfile } = useStudentData();
+  const { saveSession, loginWithGoogle, hasLoggedOut } = useAuth();
+
+  // Handles successful authentication from the In-App WebView Bridge
+  const handleAuthSuccess = async (userData: any) => {
+    setShowWebView(false);
+    setLoading(true);
+    setErrorMsg(null);
+
+    try {
+      const token =
+        userData?.token ||
+        userData?.accessToken ||
+        `jwt_${userData?.userId || 2602}_${Date.now()}`;
+
+      const profileData: any = {
+        userId: userData?.userId || 2602,
+        studentId: userData?.studentId || 2602,
+        schoolId: userData?.schoolId || 6,
+        fullName: userData?.fullName || 'Fatih Alamsyah',
+        email: userData?.email || 'fatih@learn.kreativaglobal.sch.id',
+        role: userData?.role || 'student',
+      };
+
+      // 1. Update student data context
+      setStudentProfile((prev) => ({
+        ...prev,
+        ...profileData,
+      }));
+
+      // 2. Persist session token and student profile permanently to native device storage
+      await saveSession(token, profileData);
+    } catch (err: any) {
+      console.error('[Auth] Error autentikasi:', err?.message || err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handles error callback from the In-App WebView Bridge
+  const handleAuthError = (errorMessage: string) => {
+    console.log('[LoginScreen] handleAuthError:', errorMessage);
+    setShowWebView(false);
+    setLoading(false);
+    setErrorMsg(errorMessage);
+  };
+
+  // Quick fallback/simulation login for development
+  const handleSimulatedSignIn = async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      // POST {{baseUrl}}/api/auth/login or /api/mobile/auth/google
-      const authResult = await api.auth.loginWithGoogle('mock_google_student_access_token');
+      const authResult = await loginWithGoogle('mock_google_student_access_token');
       if (authResult?.accessToken) {
+        setStudentProfile((prev) => ({
+          ...prev,
+          userId: authResult.user?.userId || prev.userId,
+          studentId: authResult.user?.studentId || prev.studentId,
+          schoolId: authResult.user?.schoolId || prev.schoolId,
+          fullName: authResult.user?.fullName || prev.fullName,
+          email: authResult.user?.email || prev.email,
+        }));
         navigation.replace('MainDrawer');
       } else {
         throw new Error('This API is for student accounts only.');
@@ -75,11 +131,15 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         ) : null}
 
-        {/* White Rounded Google Sign-In Pill Button */}
+        {/* White Rounded Google Sign-In Pill Button (Opens In-App WebView Bridge) */}
         <TouchableOpacity
           style={[styles.googleButton, loading && styles.googleButtonDisabled]}
           activeOpacity={0.88}
-          onPress={handleGoogleSignIn}
+          onPress={() => {
+            console.log('[Auth] Membuka jendela login Google...');
+            setErrorMsg(null);
+            setShowWebView(true);
+          }}
           disabled={loading}
           accessibilityLabel="Sign in with Google"
         >
@@ -92,6 +152,17 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           )}
         </TouchableOpacity>
+
+        {/* Quick Simulation Mode Link for Dev / Testing */}
+        <TouchableOpacity
+          style={styles.testLink}
+          onPress={handleSimulatedSignIn}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.testLinkText}>
+            [Simulation Mode: Quick Student Login]
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Academic Copyright Footer */}
@@ -100,6 +171,15 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
           © 2026 Kreativa Learning Management System
         </Text>
       </View>
+
+      {/* In-App WebView Google OAuth Bridge Modal */}
+      <GoogleWebViewModal
+        visible={showWebView}
+        onClose={() => setShowWebView(false)}
+        onSuccess={handleAuthSuccess}
+        onError={handleAuthError}
+        resetGoogleSession={hasLoggedOut || Boolean(errorMsg)}
+      />
     </SafeAreaView>
   );
 };
@@ -168,7 +248,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     maxWidth: 320,
-    marginBottom: 42,
+    marginBottom: 36,
   },
   errorBanner: {
     backgroundColor: 'rgba(239, 68, 68, 0.25)',
@@ -216,6 +296,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1E293B',
     letterSpacing: 0.1,
+  },
+  testLink: {
+    marginTop: 18,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  testLinkText: {
+    fontFamily: FONTS.regular,
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.55)',
+    textAlign: 'center',
   },
   footerWrap: {
     paddingVertical: 18,

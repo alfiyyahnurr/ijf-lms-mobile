@@ -21,22 +21,15 @@ export const RootNavigator: React.FC = () => {
 
   return (
     <Stack.Navigator
-      initialRouteName={isAuthenticated ? 'MainDrawer' : 'Login'}
       screenOptions={{
         headerShown: false,
         animation: 'fade',
       }}
     >
       {isAuthenticated ? (
-        <>
-          <Stack.Screen name="MainDrawer" component={DrawerNavigator} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-        </>
+        <Stack.Screen name="MainDrawer" component={DrawerNavigator} />
       ) : (
-        <>
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="MainDrawer" component={DrawerNavigator} />
-        </>
+        <Stack.Screen name="Login" component={LoginScreen} />
       )}
     </Stack.Navigator>
   );

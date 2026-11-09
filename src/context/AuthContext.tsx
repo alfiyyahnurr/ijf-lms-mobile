@@ -8,7 +8,10 @@ export interface AuthContextType {
   isLoading: boolean;
   userToken: string | null;
   studentUser: Partial<StudentProfile> | null;
+  hasLoggedOut: boolean;
+  setHasLoggedOut: (val: boolean) => void;
   loginWithGoogle: (tokenOrPayload?: any) => Promise<any>;
+  saveSession: (token: string, profile: Partial<StudentProfile>) => Promise<void>;
   logout: () => Promise<void>;
   restoreSession: () => Promise<boolean>;
 }
@@ -18,7 +21,10 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   userToken: null,
   studentUser: null,
+  hasLoggedOut: false,
+  setHasLoggedOut: () => {},
   loginWithGoogle: async () => {},
+  saveSession: async () => {},
   logout: async () => {},
   restoreSession: async () => false,
 });
@@ -28,9 +34,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [userToken, setUserToken] = useState<string | null>(null);
   const [studentUser, setStudentUser] = useState<Partial<StudentProfile> | null>(null);
+  const [hasLoggedOut, setHasLoggedOut] = useState<boolean>(false);
 
   const restoreSession = async (): Promise<boolean> => {
     try {
+      console.log('[Auth] Memeriksa sesi tersimpan pada aplikasi startup...');
       const savedToken = await storage.getAuthToken();
       const savedProfile = await storage.getStudentSession();
 
@@ -41,11 +49,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setStudentUser(savedProfile);
         }
         setIsAuthenticated(true);
+        console.log('[Auth] Sesi aktif ditemukan untuk:', savedProfile?.fullName || savedProfile?.email || 'Siswa');
         return true;
       }
+      console.log('[Auth] Tidak ada sesi login tersimpan saat startup.');
       setIsAuthenticated(false);
       return false;
-    } catch {
+    } catch (err: any) {
+      console.error('[Auth] Error restoreSession:', err?.message || err);
       setIsAuthenticated(false);
       return false;
     } finally {
@@ -56,6 +67,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     restoreSession();
   }, []);
+
+  const saveSession = async (token: string, profile: Partial<StudentProfile>) => {
+    try {
+      console.log('[Auth] Menyimpan sesi ke storage...');
+      await storage.setAuthToken(token);
+      await storage.setStudentSession(profile);
+      setAuthToken(token);
+      setUserToken(token);
+      setStudentUser(profile);
+      setHasLoggedOut(false);
+      setIsAuthenticated(true);
+      console.log('[Auth] Sesi BERHASIL disimpan untuk:', profile?.fullName || profile?.email || 'Siswa');
+    } catch (err: any) {
+      console.error('[Auth] Gagal menyimpan sesi:', err?.message || err);
+    }
+  };
 
   const loginWithGoogle = async (tokenOrPayload?: any) => {
     const authResult = await api.auth.loginWithGoogle(tokenOrPayload);
@@ -71,24 +98,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       // Persist token and session to local storage
-      await storage.setAuthToken(token);
-      await storage.setStudentSession(profileData);
-      setAuthToken(token);
-
-      setUserToken(token);
-      setStudentUser(profileData);
-      setIsAuthenticated(true);
+      await saveSession(token, profileData);
       return authResult;
     }
     throw new Error('Failed to retrieve authentication token.');
   };
 
   const logout = async () => {
+    try {
+      await fetch('https://learn.kreativaglobal.sch.id/api/auth/logout', {
+        method: 'POST',
+      });
+    } catch {
+      // Ignore background logout network errors
+    }
     await storage.clearAllSession();
     setAuthToken(null);
     setUserToken(null);
     setStudentUser(null);
+    setHasLoggedOut(true);
     setIsAuthenticated(false);
+    console.log('[Auth] Pengguna berhasil logout. Sesi dibersihkan.');
   };
 
   return (
@@ -98,7 +128,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         userToken,
         studentUser,
+        hasLoggedOut,
+        setHasLoggedOut,
         loginWithGoogle,
+        saveSession,
         logout,
         restoreSession,
       }}
@@ -109,6 +142,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const useAuth = () => useContext(AuthContext);
-
 export default AuthContext;
-
