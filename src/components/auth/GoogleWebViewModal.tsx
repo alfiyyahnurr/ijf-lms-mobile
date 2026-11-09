@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { WebView, WebViewNavigation } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
+import { REGISTERED_STUDENTS_DB } from '../../services/api';
 
 const SafeWebView = WebView as unknown as React.ComponentType<any>;
 
@@ -226,19 +227,21 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
 
     const userObj = payload?.user || payload?.profile || payload || {};
     const detailedProfile = payload?.profile || {};
+    const rawEmail = (userObj.email || detailedProfile.email || '').toLowerCase().trim();
+    const matched = rawEmail && REGISTERED_STUDENTS_DB[rawEmail] ? REGISTERED_STUDENTS_DB[rawEmail] : {};
 
     const resolvedUser = {
-      userId: userObj.userId || userObj.id || 2602,
-      studentId: userObj.studentId || detailedProfile.studentId || 2602,
-      schoolId: userObj.schoolId || 6,
-      fullName: userObj.fullName || userObj.name || detailedProfile.fullName || 'Student',
-      email: userObj.email || detailedProfile.email || 'student@learn.kreativaglobal.sch.id',
+      userId: userObj.userId || userObj.id || matched.userId || 2602,
+      studentId: userObj.studentId || detailedProfile.studentId || matched.studentId || 2602,
+      schoolId: userObj.schoolId || matched.schoolId || 6,
+      fullName: userObj.fullName || userObj.name || detailedProfile.fullName || matched.fullName || 'Student',
+      email: rawEmail || matched.email || 'alfiyyah@cnt.id',
       role: (userObj.role || 'student') as 'student',
       token: payload?.accessToken || payload?.token || undefined,
-      schoolName: detailedProfile.schoolName || userObj.schoolName,
-      className: detailedProfile.className || userObj.className,
-      house: detailedProfile.houseName || userObj.house,
-      academicYearName: detailedProfile.academicYear || userObj.academicYearName,
+      schoolName: detailedProfile.schoolName || userObj.schoolName || matched.schoolName || 'Kreativa Global School',
+      className: detailedProfile.className || userObj.className || matched.className || 'Grade 7-A (Cambridge Lower Secondary)',
+      house: detailedProfile.houseName || userObj.house || matched.house || 'Falcon',
+      academicYearName: detailedProfile.academicYear || userObj.academicYearName || '2026/2027',
     };
 
     console.log('[Auth] Connected to LMS successfully!');

@@ -144,6 +144,30 @@ let inMemoryLiteracyEntries: LiteracyEntry[] = [...INITIAL_LITERACY_ENTRIES];
 
 // Registered student database records in Kreativa LMS (matched to database core_users & core_students)
 export const REGISTERED_STUDENTS_DB: Record<string, any> = {
+  'alfiyyah@cnt.id': {
+    userId: 2602,
+    studentId: 2602,
+    schoolId: 6,
+    email: 'alfiyyah@cnt.id',
+    fullName: 'Alfiyyah Nur Rachmania',
+    role: 'student',
+    schoolName: 'Kreativa Global School',
+    className: 'Grade 7-A (Cambridge Lower Secondary)',
+    house: 'Falcon',
+    studentCode: 'KGS-2602',
+  },
+  'nralfiyyahrach@gmail.com': {
+    userId: 2602,
+    studentId: 2602,
+    schoolId: 6,
+    email: 'nralfiyyahrach@gmail.com',
+    fullName: 'Alfiyyah Nur Rachmania',
+    role: 'student',
+    schoolName: 'Kreativa Global School',
+    className: 'Grade 7-A (Cambridge Lower Secondary)',
+    house: 'Falcon',
+    studentCode: 'KGS-2602',
+  },
   'irvanadrian151@gmail.com': {
     userId: 2602,
     studentId: 2602,
