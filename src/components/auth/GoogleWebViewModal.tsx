@@ -70,6 +70,15 @@ const INJECTED_JAVASCRIPT = `
     }
   }, true);
 
+  // 4. On LMS login page, clean any residual cookies so no stale session can auto-login
+  if (window.location.hostname === 'learn.kreativaglobal.sch.id' && (window.location.pathname || '').indexOf('/login') !== -1) {
+    if (document.cookie) {
+      document.cookie.split(';').forEach(function(c) {
+        document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/');
+      });
+    }
+  }
+
   var authSent = false;
   function notifyAuthSuccess(payload) {
     if (authSent) return;
@@ -107,20 +116,15 @@ const INJECTED_JAVASCRIPT = `
       return;
     }
 
-    // Success detection (dashboard, student, courses, home route, or authenticated cookie)
+    // STRICT Success detection: ONLY on authenticated portal routes (/dashboard, /student, /courses)
+    // NEVER on /login or root /
     var isAuthRoute = (path.indexOf('/login') === -1 && path.indexOf('/api/auth') === -1) && (
       path.indexOf('/dashboard') !== -1 || 
       path.indexOf('/student') !== -1 || 
-      path.indexOf('/courses') !== -1 ||
-      path === '/'
+      path.indexOf('/courses') !== -1
     );
 
-    var hasSessionCookie = document.cookie && (
-      document.cookie.indexOf('next-auth.session-token') !== -1 ||
-      document.cookie.indexOf('__Secure-next-auth.session-token') !== -1
-    );
-
-    if (isAuthRoute || hasSessionCookie) {
+    if (isAuthRoute) {
       // Try fetching active profile from LMS API
       fetch('/api/auth/me', { credentials: 'include' })
         .then(function(res) {
@@ -240,16 +244,29 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
     const url = request.url || '';
 
     // Detect if we have transitioned to Google's official sign-in page
-    if (url.includes('accounts.google.com') && !url.includes('/logout')) {
+    if (url.includes('accounts.google.com')) {
       setIsAtGoogle(true);
+
+      // Force prompt=select_account if not present so Google ALWAYS displays the account chooser
+      if (
+        (url.includes('/o/oauth2/v2/auth') || url.includes('/signin/oauth')) &&
+        !url.includes('prompt=select_account')
+      ) {
+        const separator = url.includes('?') ? '&' : '?';
+        const forcedUrl = `${url}${separator}prompt=select_account`;
+        webViewRef.current?.injectJavaScript(`
+          window.location.href = '${forcedUrl}';
+          true;
+        `);
+        return false;
+      }
     }
 
     // If redirection is heading to the web dashboard/portal, stop rendering immediately
     if (
       url.includes('learn.kreativaglobal.sch.id/dashboard') ||
       url.includes('learn.kreativaglobal.sch.id/student') ||
-      url.includes('learn.kreativaglobal.sch.id/courses') ||
-      (url.includes('learn.kreativaglobal.sch.id') && !url.includes('/login') && !url.includes('/api/auth'))
+      url.includes('learn.kreativaglobal.sch.id/courses')
     ) {
       handleInstantSuccess();
       return false; // STOP: do NOT render the web dashboard in WebView!
@@ -280,28 +297,15 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
     const url = navState.url;
 
     // Detect if we have transitioned to Google's official sign-in page
-    if (url.includes('accounts.google.com') && !url.includes('/logout')) {
+    if (url.includes('accounts.google.com')) {
       setIsAtGoogle(true);
-    }
-
-    // If we started on Google logout to clean a previous failed attempt, redirect to login page as soon as logged out
-    if (resetGoogleSession && !hasResetGoogleRef.current && url.includes('accounts.google.com')) {
-      hasResetGoogleRef.current = true;
-      setTimeout(() => {
-        webViewRef.current?.injectJavaScript(`
-          window.location.href = '${LOGIN_URL}';
-          true;
-        `);
-      }, 500);
-      return;
     }
 
     // Redundant guard in case URL reached dashboard or authenticated route
     if (
       url.includes('learn.kreativaglobal.sch.id/dashboard') ||
       url.includes('learn.kreativaglobal.sch.id/courses') ||
-      url.includes('learn.kreativaglobal.sch.id/student') ||
-      (url.includes('learn.kreativaglobal.sch.id') && !url.includes('/login') && !url.includes('/api/auth'))
+      url.includes('learn.kreativaglobal.sch.id/student')
     ) {
       handleInstantSuccess();
       return;
@@ -342,7 +346,7 @@ export const GoogleWebViewModal: React.FC<GoogleWebViewModalProps> = ({
   };
 
   const topInset = Platform.OS === 'android' ? (RNStatusBar.currentHeight || 24) : 44;
-  const initialUri = resetGoogleSession ? GOOGLE_LOGOUT_URL : LOGIN_URL;
+  const initialUri = LOGIN_URL;
 
   return (
     <Modal
