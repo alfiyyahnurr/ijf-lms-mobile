@@ -762,7 +762,7 @@ export const HabitsScreen: React.FC = () => {
               ) : (
                 <View style={styles.rankList}>
                   {classHabitsLeaderboard.slice(0, 15).map((student, idx) => {
-                    const hPoints = student.isCurrent ? studentProfile.habitsPts : (student.habitsPts ?? student.points ?? 0);
+                    const hPoints = student.habitsPts ?? 0; // always use live API value (matches Web LMS)
                     const isMe = student.isCurrent;
                     return (
                       <View
@@ -816,7 +816,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 40,
+    paddingBottom: 110, // clearance for bottom nav bar (~76-85px) + breathing room
     maxWidth: 680,
     alignSelf: 'center',
     width: '100%',

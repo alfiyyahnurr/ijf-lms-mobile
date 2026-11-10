@@ -264,6 +264,16 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         setClassHabitsLeaderboard(habitsSorted);
         setClassLeaderboard(mapped);
+
+        // Sync current user's habitsPts from live API into studentProfile
+        const myRow = mapped.find((s) => s.isCurrent);
+        if (myRow) {
+          setStudentProfile((prev) => ({
+            ...prev,
+            habitsPts: myRow.habitsPts ?? prev.habitsPts,
+          }));
+        }
+
         return data;
       }
     } catch (err) {
