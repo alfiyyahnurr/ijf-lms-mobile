@@ -89,8 +89,8 @@ export const ToastAlert: React.FC<ToastAlertProps> = ({
     switch (type) {
       case 'error':
         return {
-          icon: 'alert-circle-outline' as const,
-          bg: '#DC2626',
+          icon: 'close-circle' as const,
+          bg: '#DC2626', // Web LMS bg-red-600
         };
       case 'warning':
         return {

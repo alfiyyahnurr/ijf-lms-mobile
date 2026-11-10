@@ -284,7 +284,7 @@ export interface WeeklyPlanSession {
 
 export interface ToastNotification {
   id: string;
-  type: 'success' | 'points' | 'info';
+  type: 'success' | 'points' | 'info' | 'error';
   points?: number;
   message: string;
   duration?: number;

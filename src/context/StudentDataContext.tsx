@@ -89,7 +89,7 @@ interface StudentDataContextType {
 
   // Toast Notifications
   toastList: ToastNotification[];
-  showToast: (message: string, points?: number) => void;
+  showToast: (message: string, typeOrPoints?: 'success' | 'error' | 'points' | number, points?: number) => void;
   dismissToast: (id: string) => void;
 
   // Courses & Academic Data (API-ready getters)
@@ -346,11 +346,16 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // Toast Notifications State
   const [toastList, setToastList] = useState<ToastNotification[]>([]);
 
-  const showToast = (message: string, points?: number) => {
+  const showToast = (message: string, typeOrPoints?: 'success' | 'error' | 'points' | number, points?: number) => {
+    let toastType: 'success' | 'points' | 'info' | 'error' = 'points';
+    let pts = typeof typeOrPoints === 'number' ? typeOrPoints : (points || 2);
+    if (typeof typeOrPoints === 'string') {
+      toastType = typeOrPoints;
+    }
     const newToast: ToastNotification = {
       id: 'toast_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-      type: 'points',
-      points: points || 2,
+      type: toastType,
+      points: pts,
       message,
       duration: 4000,
     };

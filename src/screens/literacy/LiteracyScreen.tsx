@@ -89,6 +89,12 @@ export const LiteracyScreen: React.FC = () => {
   // Entries State (synced with context)
   const [entries, setEntries] = useState<LiteracyEntry[]>(literacyEntries);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
+  const showToastNotification = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setToastType(type);
+    setToastMessage(message);
+  }, []);
   const [deleteToastVisible, setDeleteToastVisible] = useState(false);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -327,13 +333,13 @@ export const LiteracyScreen: React.FC = () => {
   const handleSaveEntry = async () => {
     if (!isFormValid || isSaving) {
       if (!formData.title.trim() || !formData.author.trim()) {
-        setToastMessage('Please enter Title and Author to save.');
+        showToastNotification('Please enter Title and Author to save.', 'error');
       } else if (!isClaimCompleted) {
-        setToastMessage('Please complete the Claim reflection step.');
+        showToastNotification('Please complete the Claim reflection step.', 'error');
       } else if (!isEvidenceCompleted) {
-        setToastMessage('Please complete the Evidence reflection step.');
+        showToastNotification('Please complete the Evidence reflection step.', 'error');
       } else if (!isSoWhatCompleted) {
-        setToastMessage('Please complete the So What? reflection step.');
+        showToastNotification('Please complete the So What? reflection step.', 'error');
       }
       return;
     }
@@ -341,7 +347,7 @@ export const LiteracyScreen: React.FC = () => {
     const todayStr = getTodayJakartaStr();
     const finishedDate = formData.dateFinished || todayStr;
     if (finishedDate > todayStr) {
-      setToastMessage('Finished date cannot be in the future.');
+      showToastNotification('Finished date cannot be in the future.', 'error');
       return;
     }
 
@@ -372,7 +378,7 @@ export const LiteracyScreen: React.FC = () => {
         setEntries((prev) => prev.map((e) => (String(e.id) === String(selectedEntry.id) ? updated : e)));
         setSelectedEntry(updated);
         setIsEditing(false);
-        setToastMessage('Reading entry updated successfully!');
+        showToastNotification('Reading entry updated successfully!', 'success');
       } else {
         const result = await api.literacy.create({
           title: formData.title.trim(),
@@ -398,14 +404,14 @@ export const LiteracyScreen: React.FC = () => {
         setEntries((prev) => [result.entry, ...prev]);
         setIsAdding(false);
         resetForm();
-        setToastMessage(result.message || `+${result.pointsAwarded} pts · Reading log`);
+        showToastNotification(result.message || `+${result.pointsAwarded} pts · Reading log`, 'success');
       }
 
       fetchLiteracyStats().then((s) => {
         if (s) setLiveStats(s);
       });
     } catch (err: any) {
-      setToastMessage(err?.message || 'Failed to save reading entry. Please try again.');
+      showToastNotification(err?.message || 'Failed to save reading entry. Please try again.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -458,7 +464,7 @@ export const LiteracyScreen: React.FC = () => {
         if (s) setLiveStats(s);
       });
     } catch (err: any) {
-      setToastMessage(err?.message || 'Failed to delete entry');
+      showToastNotification(err?.message || 'Failed to delete entry', 'error');
       setDeleteDialogVisible(false);
     }
   };
@@ -566,7 +572,7 @@ export const LiteracyScreen: React.FC = () => {
       <ToastAlert
         visible={Boolean(toastMessage)}
         message={toastMessage || ''}
-        type="success"
+        type={toastType}
         floating
         onClose={() => setToastMessage(null)}
       />

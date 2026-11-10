@@ -53,18 +53,23 @@ export const PointsToast: React.FC<PointsToastProps> = ({ toast, onDismiss }) =>
     });
   };
 
+  const isError = toast.type === 'error';
+  const bgColor = isError ? '#DC2626' : '#00A854';
+  const iconName = isError ? 'close-circle' : 'checkmark-circle-outline';
+
   return (
     <Animated.View
       style={[
         styles.container,
         {
+          backgroundColor: bgColor,
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }],
         },
       ]}
     >
       <View style={styles.contentRow}>
-        <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
+        <Ionicons name={iconName} size={18} color="#FFFFFF" />
         <Text style={styles.toastText}>{toast.message}</Text>
         <TouchableOpacity
           onPress={handleClose}
