@@ -141,7 +141,69 @@ export async function requestApi<T>(
 }
 
 // In-memory dynamic store for Literacy entries
-let inMemoryLiteracyEntries: LiteracyEntry[] = [...INITIAL_LITERACY_ENTRIES];
+let inMemoryLiteracyEntries: LiteracyEntry[] = [];
+
+// Helpers for literacy data mapping
+function mapLogToEntry(log: any): LiteracyEntry {
+  const vocabTerms = Array.isArray(log.vocab)
+    ? log.vocab.map((v: any) => (typeof v === 'string' ? v : v.term || '')).filter(Boolean)
+    : [];
+  const finishedDate = (log.finished_date ? String(log.finished_date).slice(0, 10) : '') || new Date().toISOString().slice(0, 10);
+  return {
+    id: log.id,
+    title: log.title || '',
+    author: log.author || '',
+    readingType: log.reading_type || log.readingType || 'other',
+    type: log.reading_type || log.type || 'other',
+    language: log.language || 'English',
+    genre: log.genre || '',
+    pagesOrLength: log.pages_or_length || log.pagesOrLength || '',
+    finishedDate,
+    dateFinished: finishedDate,
+    rating: log.rating != null ? Number(log.rating) : 0,
+    vocab: vocabTerms,
+    vocabulary: vocabTerms.join(', '),
+    claim: log.claim || '',
+    claimPrompt: log.claim_prompt || '',
+    reflectionClaim: log.claim_prompt || '',
+    reflectionText: log.claim || '',
+    evidence: log.evidence || '',
+    evidencePrompt: log.evidence_prompt || '',
+    sowhat: log.sowhat || '',
+    sowhatPrompt: log.sowhat_prompt || '',
+    connection: log.connection || '',
+    createdAt: log.created_at || new Date().toISOString(),
+  };
+}
+
+function parseRatingNumber(val: any): number | null {
+  if (val == null) return null;
+  if (typeof val === 'number') return val >= 1 && val <= 5 ? val : null;
+  const str = String(val);
+  const match = str.match(/\d/);
+  if (match) {
+    const num = parseInt(match[0], 10);
+    if (num >= 1 && num <= 5) return num;
+  }
+  const stars = (str.match(/[★⭐]/g) || []).length;
+  if (stars >= 1 && stars <= 5) return stars;
+  return null;
+}
+
+function normalizeToDateOnly(val: any): string {
+  if (!val) return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  const str = String(val).trim();
+  const ddmmyyyy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (ddmmyyyy) {
+    const day = ddmmyyyy[1].padStart(2, '0');
+    const month = ddmmyyyy[2].padStart(2, '0');
+    const year = ddmmyyyy[3];
+    return `${year}-${month}-${day}`;
+  }
+  const yyyymmdd = str.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (yyyymmdd) return yyyymmdd[1];
+  return str;
+}
 
 // Registered student database records in Kreativa LMS (matched to database core_users & core_students)
 export const REGISTERED_STUDENTS_DB: Record<string, any> = {
@@ -1040,35 +1102,52 @@ export const api = {
   // ==========================================
   literacy: {
     // GET {{baseUrl}}/api/student/literacy?termId={{termId}}
-    list: async (termId: number = 1): Promise<LiteracyEntry[]> => {
+    list: async (termId?: number): Promise<LiteracyEntry[]> => {
       try {
-        const live = await requestApi<LiteracyEntry[]>(
-          `/api/student/literacy?termId=${termId}`,
-          'GET'
-        );
-        if (Array.isArray(live) && live.length > 0) {
-          inMemoryLiteracyEntries = live;
-          return live;
+        const url = termId ? `/api/student/literacy?termId=${termId}` : '/api/student/literacy';
+        const live = await requestApi<any>(url, 'GET');
+        let rawLogs: any[] = [];
+        if (live && Array.isArray(live.logs)) {
+          rawLogs = live.logs;
+        } else if (Array.isArray(live)) {
+          rawLogs = live;
+        }
+
+        if (live?.logs !== undefined || Array.isArray(live)) {
+          const mapped = rawLogs.map(mapLogToEntry);
+          inMemoryLiteracyEntries = mapped;
+          return mapped;
         }
       } catch (err) {
-        // Fallback to local
+        console.warn('[Literacy List API Error]', err);
       }
       return [...inMemoryLiteracyEntries];
     },
 
     // GET {{baseUrl}}/api/student/literacy/stats?termId={{termId}}
-    getStats: async (termId: number = 1): Promise<LiteracyProgressStats> => {
+    getStats: async (termId?: number): Promise<LiteracyProgressStats> => {
       try {
-        const liveStats = await requestApi<LiteracyProgressStats>(
-          `/api/student/literacy/stats?termId=${termId}`,
-          'GET'
-        );
-        if (liveStats && typeof liveStats.textsRead === 'number') {
-          return liveStats;
+        const url = termId ? `/api/student/literacy/stats?termId=${termId}` : '/api/student/literacy/stats';
+        const liveStats = await requestApi<any>(url, 'GET');
+        if (liveStats && (typeof liveStats.totalEntries === 'number' || typeof liveStats.textsRead === 'number')) {
+          const textsRead = liveStats.totalEntries ?? liveStats.textsRead ?? 0;
+          const targets = liveStats.targets || {};
+          return {
+            textsRead,
+            textsTarget: targets.texts ?? INITIAL_LITERACY_PROGRESS.textsTarget,
+            genreVariety: liveStats.genreVariety ?? 0,
+            genreTarget: targets.genres ?? INITIAL_LITERACY_PROGRESS.genreTarget,
+            avgRating: liveStats.avgRating != null ? String(liveStats.avgRating) : '—',
+            englishPercentage: liveStats.englishPct ?? liveStats.englishPercentage ?? 0,
+            englishTargetPercentage: targets.englishPct ?? INITIAL_LITERACY_PROGRESS.englishTargetPercentage,
+            level: liveStats.track?.toUpperCase() || INITIAL_LITERACY_PROGRESS.level,
+            schoolLevel: liveStats.track?.toUpperCase() || INITIAL_LITERACY_PROGRESS.schoolLevel,
+          };
         }
       } catch (err) {
-        // Fallback to local
+        console.warn('[Literacy Stats API Error]', err);
       }
+
       const textsRead = inMemoryLiteracyEntries.length;
       const uniqueGenres = new Set(inMemoryLiteracyEntries.map((e) => e.genre).filter(Boolean)).size;
       const englishCount = inMemoryLiteracyEntries.filter((e) => e.language === 'English').length;
@@ -1111,54 +1190,92 @@ export const api = {
     },
 
     // POST {{baseUrl}}/api/student/literacy
-    create: async (payload: Partial<LiteracyEntry>): Promise<LiteracyEntry> => {
-      const newEntry: LiteracyEntry = {
-        id: 'lit-' + Date.now(),
-        title: (payload.title || 'Untitled').trim(),
-        author: (payload.author || 'Anonymous').trim(),
-        readingType: payload.readingType || payload.type || 'Novel / Fiction',
-        type: payload.type || payload.readingType || 'Novel / Fiction',
-        genre: payload.genre || 'Historical Fiction',
+    create: async (payload: Partial<LiteracyEntry>): Promise<{ entry: LiteracyEntry; pointsAwarded: number; message?: string }> => {
+      const finishedDate = normalizeToDateOnly(payload.finishedDate || payload.dateFinished);
+      const ratingNum = parseRatingNumber(payload.rating);
+      const vocabRaw = payload.vocab || payload.vocabulary || [];
+      const vocabArray = Array.isArray(vocabRaw)
+        ? vocabRaw.map(String).map((s: string) => s.trim()).filter(Boolean)
+        : String(vocabRaw).split(',').map((s: string) => s.trim()).filter(Boolean);
+
+      const readingType = (payload.readingType || payload.type || 'novel').toLowerCase();
+      let readingTypeId = 'novel';
+      if (readingType.includes('nonfic') || readingType.includes('non-fic') || readingType.includes('memoir')) readingTypeId = 'nonfic';
+      else if (readingType.includes('article') || readingType.includes('essay')) readingTypeId = 'article';
+      else if (readingType.includes('journal')) readingTypeId = 'journal';
+      else if (readingType.includes('news')) readingTypeId = 'news';
+      else if (readingType.includes('poetry') || readingType.includes('literature')) readingTypeId = 'poetry';
+      else if (readingType.includes('graphic') || readingType.includes('comic')) readingTypeId = 'graphic';
+      else if (readingType.includes('other')) readingTypeId = 'other';
+      else if (readingType.includes('novel') || readingType.includes('fiction')) readingTypeId = 'novel';
+      else readingTypeId = payload.readingType || payload.type || 'novel';
+
+      const backendBody = {
+        title: String(payload.title || '').trim(),
+        author: payload.author ? String(payload.author).trim() : null,
+        reading_type: readingTypeId,
+        genre: payload.genre || null,
         language: payload.language || 'English',
-        pagesOrLength: payload.pagesOrLength || '—',
-        finishedDate: payload.finishedDate || payload.dateFinished || new Date().toISOString().split('T')[0],
-        dateFinished: payload.dateFinished || payload.finishedDate || '22/10/2026',
-        rating: payload.rating || 'Outstanding ★★★★★',
-        claim: payload.claim || payload.reflectionText || '',
-        claimPrompt: payload.claimPrompt || payload.reflectionClaim || 'What argument or central claim does the author make?',
-        reflectionClaim: payload.claimPrompt || payload.reflectionClaim || 'What argument or central claim does the author make?',
-        reflectionText: payload.claim || payload.reflectionText || '',
-        evidence: payload.evidence || '',
-        evidencePrompt: payload.evidencePrompt || 'Which specific passage, data, or example best supports your claim?',
-        sowhat: payload.sowhat || '',
-        sowhatPrompt: payload.sowhatPrompt || 'What are the broader implications of the author\'s argument?',
-        connection: payload.connection || '',
-        vocab: payload.vocab || (payload.vocabulary ? payload.vocabulary.split(',').map((w) => w.trim()).filter(Boolean) : []),
-        vocabulary: payload.vocabulary || (payload.vocab ? payload.vocab.join(', ') : ''),
-        createdAt: new Date().toISOString(),
+        pages_or_length: payload.pagesOrLength || null,
+        finished_date: finishedDate,
+        rating: ratingNum,
+        claim_prompt: payload.claimPrompt || payload.reflectionClaim || null,
+        claim: String(payload.claim || payload.reflectionText || '').trim(),
+        evidence_prompt: payload.evidencePrompt || null,
+        evidence: String(payload.evidence || '').trim(),
+        sowhat_prompt: payload.sowhatPrompt || null,
+        sowhat: String(payload.sowhat || '').trim(),
+        connection: payload.connection ? String(payload.connection).trim() : null,
+        vocab: vocabArray,
       };
 
-      try {
-        const liveRes = await requestApi<any>('/api/student/literacy', 'POST', payload);
-        if (liveRes && liveRes.id) {
-          const entryWithServerId = { ...newEntry, ...liveRes, id: liveRes.id };
-          inMemoryLiteracyEntries = [entryWithServerId, ...inMemoryLiteracyEntries];
-          return entryWithServerId;
-        }
-      } catch (err) {
-        // Fallback to local
+      const liveRes = await requestApi<any>('/api/student/literacy', 'POST', backendBody);
+      if (liveRes && liveRes.log) {
+        const entryWithServerId = mapLogToEntry(liveRes.log);
+        inMemoryLiteracyEntries = [entryWithServerId, ...inMemoryLiteracyEntries];
+        return {
+          entry: entryWithServerId,
+          pointsAwarded: liveRes.pointsAwarded ?? 3,
+          message: liveRes.message,
+        };
       }
-
-      inMemoryLiteracyEntries = [newEntry, ...inMemoryLiteracyEntries];
-      return newEntry;
+      throw new Error(liveRes?.error || 'Failed to save literacy entry');
     },
 
     // PUT {{baseUrl}}/api/student/literacy/{{literacyId}}
     update: async (literacyId: string | number, payload: Partial<LiteracyEntry>): Promise<LiteracyEntry> => {
-      try {
-        await requestApi<any>(`/api/student/literacy/${literacyId}`, 'PUT', payload);
-      } catch (err) {
-        // Fallback
+      const finishedDate = normalizeToDateOnly(payload.finishedDate || payload.dateFinished);
+      const ratingNum = parseRatingNumber(payload.rating);
+      const vocabRaw = payload.vocab || payload.vocabulary || [];
+      const vocabArray = Array.isArray(vocabRaw)
+        ? vocabRaw.map(String).map((s: string) => s.trim()).filter(Boolean)
+        : String(vocabRaw).split(',').map((s: string) => s.trim()).filter(Boolean);
+
+      const backendBody: any = {};
+      if (payload.title !== undefined) backendBody.title = String(payload.title).trim();
+      if (payload.author !== undefined) backendBody.author = payload.author ? String(payload.author).trim() : null;
+      if (payload.readingType || payload.type) backendBody.reading_type = payload.readingType || payload.type;
+      if (payload.genre !== undefined) backendBody.genre = payload.genre;
+      if (payload.language !== undefined) backendBody.language = payload.language;
+      if (payload.pagesOrLength !== undefined) backendBody.pages_or_length = payload.pagesOrLength;
+      if (payload.finishedDate || payload.dateFinished) backendBody.finished_date = finishedDate;
+      if (payload.rating !== undefined) backendBody.rating = ratingNum;
+      if (payload.claim || payload.reflectionText) backendBody.claim = payload.claim || payload.reflectionText;
+      if (payload.claimPrompt || payload.reflectionClaim) backendBody.claim_prompt = payload.claimPrompt || payload.reflectionClaim;
+      if (payload.evidence !== undefined) backendBody.evidence = payload.evidence;
+      if (payload.evidencePrompt !== undefined) backendBody.evidence_prompt = payload.evidencePrompt;
+      if (payload.sowhat !== undefined) backendBody.sowhat = payload.sowhat;
+      if (payload.sowhatPrompt !== undefined) backendBody.sowhat_prompt = payload.sowhatPrompt;
+      if (payload.connection !== undefined) backendBody.connection = payload.connection;
+      if (payload.vocab || payload.vocabulary) backendBody.vocab = vocabArray;
+
+      const liveRes = await requestApi<any>(`/api/student/literacy/${literacyId}`, 'PUT', backendBody);
+      if (liveRes && liveRes.log) {
+        const updated = mapLogToEntry(liveRes.log);
+        inMemoryLiteracyEntries = inMemoryLiteracyEntries.map((e) =>
+          String(e.id) === String(literacyId) ? updated : e
+        );
+        return updated;
       }
 
       const index = inMemoryLiteracyEntries.findIndex((e) => String(e.id) === String(literacyId));
@@ -1180,9 +1297,8 @@ export const api = {
       try {
         await requestApi<any>(`/api/student/literacy/${literacyId}`, 'DELETE');
       } catch (err) {
-        // Fallback
+        console.warn('[Literacy Delete API Error]', err);
       }
-
       inMemoryLiteracyEntries = inMemoryLiteracyEntries.filter((e) => String(e.id) !== String(literacyId));
       return { success: true, id: literacyId };
     },

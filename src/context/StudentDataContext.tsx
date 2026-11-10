@@ -13,6 +13,7 @@ import {
   SubjectGrade,
   WeeklyPlanSession,
   LiteracyEntry,
+  LiteracyProgressStats,
   Announcement,
 } from '../types';
 
@@ -83,6 +84,8 @@ interface StudentDataContextType {
   isDateSubmitted: (dateKey: string) => boolean;
   fetchHabitsMonth: (yearMonth: string) => Promise<any>;
   fetchClassLeaderboard: () => Promise<any>;
+  fetchLiteracyLogs: () => Promise<LiteracyEntry[]>;
+  fetchLiteracyStats: () => Promise<LiteracyProgressStats | null>;
 
   // Toast Notifications
   toastList: ToastNotification[];
@@ -97,7 +100,7 @@ interface StudentDataContextType {
   grades: SubjectGrade[];
   announcements: Announcement[];
   literacyEntries: LiteracyEntry[];
-  addLiteracyEntry: (entry: LiteracyEntry) => void;
+  addLiteracyEntry: (entry: LiteracyEntry, pointsAwarded?: number) => void;
   updateLiteracyEntry: (id: string | number, updated: Partial<LiteracyEntry>) => void;
   deleteLiteracyEntry: (id: string | number) => void;
   loadSampleLiteracyEntry: () => void;
@@ -145,6 +148,14 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
           ...prev,
           ...liveProfile,
         }));
+      }
+
+      // Sync literacy logs from live backend API
+      try {
+        const liveLogs = await api.literacy.list();
+        setLiteracyEntries(liveLogs);
+      } catch (e) {
+        // ignore
       }
     } catch (err: any) {
       setIsError(true);
@@ -240,6 +251,32 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return null;
   }, []);
 
+  // Dynamic Literacy Entries State (populated live from API)
+  const [literacyEntries, setLiteracyEntries] = useState<LiteracyEntry[]>([]);
+
+  // Fetch live student literacy logs directly from backend API
+  const fetchLiteracyLogs = useCallback(async () => {
+    try {
+      const logs = await api.literacy.list();
+      setLiteracyEntries(logs);
+      return logs;
+    } catch (err) {
+      console.warn('[Fetch Literacy Logs Error]', err);
+    }
+    return [];
+  }, []);
+
+  // Fetch live student literacy statistics directly from backend API
+  const fetchLiteracyStats = useCallback(async () => {
+    try {
+      const stats = await api.literacy.getStats();
+      return stats;
+    } catch (err) {
+      console.warn('[Fetch Literacy Stats Error]', err);
+    }
+    return null;
+  }, []);
+
   // Fetch live class habits leaderboard directly from backend API
   const fetchClassLeaderboard = useCallback(async () => {
     try {
@@ -282,12 +319,13 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return null;
   }, [studentProfile.studentId]);
 
-  // Load initial active month habits on startup / user switch
+  // Load initial active month habits and literacy on startup / user switch
   useEffect(() => {
     const ym = todayKey.slice(0, 7);
     fetchHabitsMonth(ym);
     fetchClassLeaderboard();
-  }, [todayKey, studentProfile.studentId, fetchHabitsMonth, fetchClassLeaderboard]);
+    fetchLiteracyLogs();
+  }, [todayKey, studentProfile.studentId, fetchHabitsMonth, fetchClassLeaderboard, fetchLiteracyLogs]);
 
   // House Leaderboard State (7 houses, dynamic points and breakdown)
   const [houseLeaderboard, setHouseLeaderboard] = useState<LeaderboardHouse[]>([...LEADERBOARD_HOUSES]);
@@ -531,61 +569,56 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
-  // Dynamic Literacy Entries State (Default empty, can load sample or all)
-  const [literacyEntries, setLiteracyEntries] = useState<LiteracyEntry[]>([...INITIAL_LITERACY_ENTRIES]);
+  const addLiteracyEntry = (entry: LiteracyEntry, pointsAwarded = 3) => {
+    setLiteracyEntries((prev) => [entry, ...prev.filter((e) => String(e.id) !== String(entry.id))]);
+    // Award points for logging a reading text
+    if (pointsAwarded > 0) {
+      setStudentProfile((prev) => ({
+        ...prev,
+        literacyPts: prev.literacyPts + pointsAwarded,
+        points: prev.points + pointsAwarded,
+      }));
 
-  const addLiteracyEntry = (entry: LiteracyEntry) => {
-    setLiteracyEntries((prev) => [entry, ...prev]);
-    // Award +3 points for logging a reading text
-    setStudentProfile((prev) => ({
-      ...prev,
-      literacyPts: prev.literacyPts + 3,
-      points: prev.points + 3,
-    }));
-
-    // Reactively update Class Full Leaderboard (literacyPts + 3, total points + 3, re-sort)
-    setClassLeaderboard((prev) => {
-      const updated = prev.map((student) => {
-        if (student.isCurrent) {
-          const newL = (student.literacyPts || 0) + 3;
-          const newTotal = student.points + 3;
-          return { ...student, literacyPts: newL, points: newTotal };
-        }
-        return student;
+      // Reactively update Class Full Leaderboard (literacyPts + pointsAwarded, total points + pointsAwarded, re-sort)
+      setClassLeaderboard((prev) => {
+        const updated = prev.map((student) => {
+          if (student.isCurrent) {
+            const newL = (student.literacyPts || 0) + pointsAwarded;
+            const newTotal = student.points + pointsAwarded;
+            return { ...student, literacyPts: newL, points: newTotal };
+          }
+          return student;
+        });
+        return [...updated]
+          .sort((a, b) => b.points - a.points)
+          .map((s, idx) => ({ ...s, rank: idx + 1 }));
       });
-      return [...updated]
-        .sort((a, b) => b.points - a.points)
-        .map((s, idx) => ({ ...s, rank: idx + 1 }));
-    });
 
-    // Reactively update Jenjang Full Leaderboard (literacyPts + 3, total points + 3, re-sort)
-    setJenjangLeaderboard((prev) => {
-      const updated = prev.map((student) => {
-        if (student.isCurrent) {
-          const newL = (student.literacyPts || 0) + 3;
-          const newTotal = student.points + 3;
-          return { ...student, literacyPts: newL, points: newTotal };
-        }
-        return student;
+      // Reactively update Jenjang Full Leaderboard (literacyPts + pointsAwarded, total points + pointsAwarded, re-sort)
+      setJenjangLeaderboard((prev) => {
+        const updated = prev.map((student) => {
+          if (student.isCurrent) {
+            const newL = (student.literacyPts || 0) + pointsAwarded;
+            const newTotal = student.points + pointsAwarded;
+            return { ...student, literacyPts: newL, points: newTotal };
+          }
+          return student;
+        });
+        return [...updated]
+          .sort((a, b) => b.points - a.points)
+          .map((s, idx) => ({ ...s, rank: idx + 1 }));
       });
-      return [...updated]
-        .sort((a, b) => b.points - a.points)
-        .map((s, idx) => ({ ...s, rank: idx + 1 }));
-    });
 
-    setPointsHistory((prev) => [
-      {
-        id: `lit_${entry.id}_${Date.now()}`,
-        title: entry.title.trim(),
-        date: 'Today',
-        points: 3,
-      },
-      ...prev,
-    ]);
-    showToast('+3 pts · Reading log', 3);
-
-    // Synchronize to backend database asynchronously
-    api.literacy.create(entry).catch(() => {});
+      setPointsHistory((prev) => [
+        {
+          id: `lit_${entry.id}_${Date.now()}`,
+          title: entry.title.trim(),
+          date: 'Today',
+          points: pointsAwarded,
+        },
+        ...prev,
+      ]);
+    }
   };
 
   const updateLiteracyEntry = (id: string | number, updated: Partial<LiteracyEntry>) => {
@@ -675,6 +708,8 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         isDateSubmitted,
         fetchHabitsMonth,
         fetchClassLeaderboard,
+        fetchLiteracyLogs,
+        fetchLiteracyStats,
         toastList,
         showToast,
         dismissToast,

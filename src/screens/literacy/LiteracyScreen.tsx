@@ -11,6 +11,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,15 +42,19 @@ interface DropdownModalState {
   onSelect: (value: string) => void;
 }
 
+function getTodayJakartaStr(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+}
+
 const DEFAULT_EMPTY_FORM: LiteracyFormData = {
   title: '',
   author: '',
-  type: '',
-  language: '',
-  genre: '',
+  type: 'Novel / Fiction',
+  language: 'English',
+  genre: 'Historical Fiction',
   pagesOrLength: '',
-  dateFinished: '',
-  rating: '',
+  dateFinished: getTodayJakartaStr(),
+  rating: 'Outstanding ★★★★★',
   vocabulary: '',
   reflectionClaimPrompt: '',
   reflectionClaimText: '',
@@ -66,6 +71,8 @@ export const LiteracyScreen: React.FC = () => {
     addLiteracyEntry,
     updateLiteracyEntry,
     deleteLiteracyEntry,
+    fetchLiteracyLogs,
+    fetchLiteracyStats,
   } = useStudentData();
 
   // Navigation tabs: 'log' | 'progress'
@@ -73,6 +80,11 @@ export const LiteracyScreen: React.FC = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<LiteracyEntry | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Live status states
+  const [isFetching, setIsFetching] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [liveStats, setLiveStats] = useState<LiteracyProgressStats | null>(null);
 
   // Entries State (synced with context)
   const [entries, setEntries] = useState<LiteracyEntry[]>(literacyEntries);
@@ -178,18 +190,32 @@ export const LiteracyScreen: React.FC = () => {
     resetForm();
   }, [isEditing, selectedEntry, resetForm]);
 
-  // Auto-close add/detail mode and reset form/scroll when navigating away
+  // Load literacy logs and statistics whenever screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      let isMounted = true;
+      setIsFetching(true);
+      Promise.all([fetchLiteracyLogs(), fetchLiteracyStats()])
+        .then(([logs, stats]) => {
+          if (isMounted) {
+            if (Array.isArray(logs)) setEntries(logs);
+            if (stats) setLiveStats(stats);
+          }
+        })
+        .finally(() => {
+          if (isMounted) setIsFetching(false);
+        });
+
       mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       return () => {
+        isMounted = false;
         setIsAdding(false);
         setSelectedEntry(null);
         setIsEditing(false);
         resetForm();
         mainScrollRef.current?.scrollTo({ y: 0, animated: false });
       };
-    }, [resetForm])
+    }, [fetchLiteracyLogs, fetchLiteracyStats, resetForm])
   );
 
   // Reset when user taps tab icon or navigation triggers reset
@@ -226,6 +252,9 @@ export const LiteracyScreen: React.FC = () => {
 
   // Computed Progress Metrics
   const progressStats = useMemo<LiteracyProgressStats>(() => {
+    if (liveStats) {
+      return liveStats;
+    }
     const textsRead = entries.length;
     const uniqueGenres = new Set(entries.map((e) => e.genre).filter(Boolean)).size;
     const englishCount = entries.filter((e) => e.language === 'English').length;
@@ -265,7 +294,7 @@ export const LiteracyScreen: React.FC = () => {
       level: INITIAL_LITERACY_PROGRESS.level,
       schoolLevel: INITIAL_LITERACY_PROGRESS.schoolLevel,
     };
-  }, [entries]);
+  }, [entries, liveStats]);
 
   // Form Field Update Helper
   const updateFormField = <K extends keyof LiteracyFormData>(key: K, value: LiteracyFormData[K]) => {
@@ -295,8 +324,8 @@ export const LiteracyScreen: React.FC = () => {
     isSoWhatCompleted;
 
   // Handle Save Entry (New or Update)
-  const handleSaveEntry = () => {
-    if (!isFormValid) {
+  const handleSaveEntry = async () => {
+    if (!isFormValid || isSaving) {
       if (!formData.title.trim() || !formData.author.trim()) {
         setToastMessage('Please enter Title and Author to save.');
       } else if (!isClaimCompleted) {
@@ -309,85 +338,83 @@ export const LiteracyScreen: React.FC = () => {
       return;
     }
 
-    if (isEditing && selectedEntry) {
-      // Update existing entry
-      const updatedEntry: LiteracyEntry = {
-        ...selectedEntry,
-        title: formData.title.trim(),
-        author: formData.author.trim(),
-        readingType: formData.type || 'Novel / Fiction',
-        type: formData.type || 'Novel / Fiction',
-        language: formData.language || 'English',
-        genre: formData.genre || 'Historical Fiction',
-        pagesOrLength: formData.pagesOrLength.trim() || '—',
-        finishedDate: formData.dateFinished || selectedEntry.dateFinished,
-        dateFinished: formData.dateFinished || selectedEntry.dateFinished,
-        rating: formData.rating || selectedEntry.rating,
-        vocabulary: formData.vocabulary.trim(),
-        vocab: formData.vocabulary
-          ? formData.vocabulary.split(',').map((w) => w.trim()).filter(Boolean)
-          : [],
-        claimPrompt: formData.reflectionClaimPrompt,
-        claim: formData.reflectionClaimText.trim(),
-        reflectionClaim: formData.reflectionClaimPrompt,
-        reflectionText: formData.reflectionClaimText.trim(),
-        evidencePrompt: formData.reflectionEvidencePrompt,
-        evidence: formData.reflectionEvidenceText.trim(),
-        sowhatPrompt: formData.reflectionSoWhatPrompt,
-        sowhat: formData.reflectionSoWhatText.trim(),
-        connection: formData.connection.trim(),
-      };
-
-      updateLiteracyEntry(selectedEntry.id, updatedEntry);
-      api.literacy.update(selectedEntry.id, updatedEntry);
-      setEntries((prev) => prev.map((e) => (e.id === selectedEntry.id ? updatedEntry : e)));
-      setSelectedEntry(updatedEntry);
-      setIsEditing(false);
-      setToastMessage('Reading entry updated successfully!');
+    const todayStr = getTodayJakartaStr();
+    const finishedDate = formData.dateFinished || todayStr;
+    if (finishedDate > todayStr) {
+      setToastMessage('Finished date cannot be in the future.');
       return;
     }
 
-    // Create brand new entry
-    const newEntry: LiteracyEntry = {
-      id: 'lit_' + Date.now(),
-      title: formData.title.trim(),
-      author: formData.author.trim(),
-      readingType: formData.type || 'Novel / Fiction',
-      type: formData.type || 'Novel / Fiction',
-      language: formData.language || 'English',
-      genre: formData.genre || 'Historical Fiction',
-      pagesOrLength: formData.pagesOrLength.trim() || '—',
-      finishedDate: formData.dateFinished || '22/10/2026',
-      dateFinished: formData.dateFinished || '22/10/2026',
-      rating: formData.rating || 'Outstanding ★★★★★',
-      vocabulary: formData.vocabulary.trim(),
-      vocab: formData.vocabulary
-        ? formData.vocabulary.split(',').map((w) => w.trim()).filter(Boolean)
-        : [],
-      claimPrompt: formData.reflectionClaimPrompt,
-      claim: formData.reflectionClaimText.trim(),
-      reflectionClaim: formData.reflectionClaimPrompt,
-      reflectionText: formData.reflectionClaimText.trim(),
-      evidencePrompt: formData.reflectionEvidencePrompt,
-      evidence: formData.reflectionEvidenceText.trim(),
-      sowhatPrompt: formData.reflectionSoWhatPrompt,
-      sowhat: formData.reflectionSoWhatText.trim(),
-      connection: formData.connection.trim(),
-      createdAt: new Date().toISOString(),
-    };
+    setIsSaving(true);
+    try {
+      if (isEditing && selectedEntry) {
+        const updated = await api.literacy.update(selectedEntry.id, {
+          title: formData.title.trim(),
+          author: formData.author.trim(),
+          readingType: formData.type || 'Novel / Fiction',
+          type: formData.type || 'Novel / Fiction',
+          language: formData.language || 'English',
+          genre: formData.genre || 'Historical Fiction',
+          pagesOrLength: formData.pagesOrLength.trim() || '—',
+          finishedDate,
+          dateFinished: finishedDate,
+          rating: formData.rating,
+          vocabulary: formData.vocabulary.trim(),
+          claimPrompt: formData.reflectionClaimPrompt,
+          claim: formData.reflectionClaimText.trim(),
+          evidencePrompt: formData.reflectionEvidencePrompt,
+          evidence: formData.reflectionEvidenceText.trim(),
+          sowhatPrompt: formData.reflectionSoWhatPrompt,
+          sowhat: formData.reflectionSoWhatText.trim(),
+          connection: formData.connection.trim(),
+        });
+        updateLiteracyEntry(selectedEntry.id, updated);
+        setEntries((prev) => prev.map((e) => (String(e.id) === String(selectedEntry.id) ? updated : e)));
+        setSelectedEntry(updated);
+        setIsEditing(false);
+        setToastMessage('Reading entry updated successfully!');
+      } else {
+        const result = await api.literacy.create({
+          title: formData.title.trim(),
+          author: formData.author.trim(),
+          readingType: formData.type || 'Novel / Fiction',
+          type: formData.type || 'Novel / Fiction',
+          language: formData.language || 'English',
+          genre: formData.genre || 'Historical Fiction',
+          pagesOrLength: formData.pagesOrLength.trim() || '—',
+          finishedDate,
+          dateFinished: finishedDate,
+          rating: formData.rating,
+          vocabulary: formData.vocabulary.trim(),
+          claimPrompt: formData.reflectionClaimPrompt,
+          claim: formData.reflectionClaimText.trim(),
+          evidencePrompt: formData.reflectionEvidencePrompt,
+          evidence: formData.reflectionEvidenceText.trim(),
+          sowhatPrompt: formData.reflectionSoWhatPrompt,
+          sowhat: formData.reflectionSoWhatText.trim(),
+          connection: formData.connection.trim(),
+        });
+        addLiteracyEntry(result.entry, result.pointsAwarded);
+        setEntries((prev) => [result.entry, ...prev]);
+        setIsAdding(false);
+        resetForm();
+        setToastMessage(result.message || `+${result.pointsAwarded} pts · Reading log`);
+      }
 
-    addLiteracyEntry(newEntry);
-    api.literacy.create(newEntry);
-    setEntries([newEntry, ...entries]);
-    setIsAdding(false);
-    resetForm();
-
-    setToastMessage('+3 pts · Reading log');
+      fetchLiteracyStats().then((s) => {
+        if (s) setLiveStats(s);
+      });
+    } catch (err: any) {
+      setToastMessage(err?.message || 'Failed to save reading entry. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Handle Start Edit
   const handleStartEdit = () => {
     if (!selectedEntry) return;
+    const finished = selectedEntry.finishedDate || selectedEntry.dateFinished || getTodayJakartaStr();
     setFormData({
       title: selectedEntry.title,
       author: selectedEntry.author,
@@ -395,7 +422,7 @@ export const LiteracyScreen: React.FC = () => {
       language: selectedEntry.language || 'English',
       genre: selectedEntry.genre || 'Historical Fiction',
       pagesOrLength: selectedEntry.pagesOrLength === '—' ? '' : selectedEntry.pagesOrLength,
-      dateFinished: selectedEntry.dateFinished || selectedEntry.finishedDate || '22/10/2026',
+      dateFinished: finished,
       rating: String(selectedEntry.rating || 'Outstanding ★★★★★'),
       vocabulary:
         selectedEntry.vocabulary ||
@@ -417,15 +444,23 @@ export const LiteracyScreen: React.FC = () => {
   };
 
   // Handle Delete Entry
-  const handleDeleteEntry = () => {
+  const handleDeleteEntry = async () => {
     if (!selectedEntry) return;
-    deleteLiteracyEntry(selectedEntry.id);
-    api.literacy.delete(selectedEntry.id);
-    setEntries((prev) => prev.filter((e) => e.id !== selectedEntry.id));
-    setSelectedEntry(null);
-    setIsEditing(false);
-    setDeleteDialogVisible(false);
-    setDeleteToastVisible(true);
+    try {
+      await api.literacy.delete(selectedEntry.id);
+      deleteLiteracyEntry(selectedEntry.id);
+      setEntries((prev) => prev.filter((e) => String(e.id) !== String(selectedEntry.id)));
+      setSelectedEntry(null);
+      setIsEditing(false);
+      setDeleteDialogVisible(false);
+      setDeleteToastVisible(true);
+      fetchLiteracyStats().then((s) => {
+        if (s) setLiveStats(s);
+      });
+    } catch (err: any) {
+      setToastMessage(err?.message || 'Failed to delete entry');
+      setDeleteDialogVisible(false);
+    }
   };
 
   // Helper to format date string to "DD Mon YYYY" (e.g. 22 Oct 2026)
@@ -498,14 +533,14 @@ export const LiteracyScreen: React.FC = () => {
   const handleDateSelected = (selectedDateStr: string) => {
     setCalendarVisible(false);
     if (!selectedDateStr) return;
-    if (selectedDateStr.includes('-')) {
-      const parts = selectedDateStr.split('-');
+    let formatted = selectedDateStr;
+    if (selectedDateStr.includes('/')) {
+      const parts = selectedDateStr.split('/');
       if (parts.length === 3) {
-        updateFormField('dateFinished', `${parts[2]}/${parts[1]}/${parts[0]}`);
-        return;
+        formatted = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
       }
     }
-    updateFormField('dateFinished', selectedDateStr);
+    updateFormField('dateFinished', formatted);
   };
 
   // Target Met logic for Tab Progress
@@ -579,7 +614,7 @@ export const LiteracyScreen: React.FC = () => {
           style={styles.mainScroll}
           contentContainerStyle={[
             styles.mainScrollContent,
-            { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 60 : 60 },
+            { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 60 : 110 },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -693,10 +728,20 @@ export const LiteracyScreen: React.FC = () => {
                   </TouchableOpacity>
                 </View>
 
-                {/* Empty State vs List Cards (Exact Image 1 layout) */}
-                {entries.length === 0 ? (
+                {/* Loading State / Empty State vs List Cards */}
+                {isFetching && entries.length === 0 ? (
+                  <View style={{ paddingVertical: 48, alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIndicator size="small" color="#135E66" />
+                    <Text style={{ marginTop: 12, fontSize: 13, color: '#64748B' }}>
+                      Loading reading entries...
+                    </Text>
+                  </View>
+                ) : entries.length === 0 ? (
                   <View style={styles.emptyContainer}>
                     <Text style={styles.emptyText}>No reading entries yet.</Text>
+                    <Text style={{ marginTop: 6, fontSize: 13, color: '#94A3B8', textAlign: 'center' }}>
+                      Tap "+ Add Entry" above to log your first reading text.
+                    </Text>
                   </View>
                 ) : (
                   <View style={styles.entryList}>
@@ -919,7 +964,7 @@ export const LiteracyScreen: React.FC = () => {
                             !formData.dateFinished && styles.placeholderText,
                           ]}
                         >
-                          {formData.dateFinished || 'DD/MM/YYYY'}
+                          {formData.dateFinished ? formatDisplayDate(formData.dateFinished) : 'Select date'}
                         </Text>
                         <Ionicons name="calendar-outline" size={16} color="#1E293B" />
                       </TouchableOpacity>
@@ -1247,19 +1292,24 @@ export const LiteracyScreen: React.FC = () => {
                   <TouchableOpacity
                     style={[
                       styles.saveButton,
-                      isFormValid ? styles.saveButtonActive : styles.saveButtonDisabled,
+                      isFormValid && !isSaving ? styles.saveButtonActive : styles.saveButtonDisabled,
                     ]}
                     onPress={handleSaveEntry}
-                    activeOpacity={isFormValid ? 0.8 : 1}
+                    disabled={!isFormValid || isSaving}
+                    activeOpacity={isFormValid && !isSaving ? 0.8 : 1}
                   >
-                    <Text
-                      style={[
-                        styles.saveButtonText,
-                        isFormValid && styles.saveButtonTextActive,
-                      ]}
-                    >
-                      {isEditing ? 'Update Entry →' : 'Save Entry →'}
-                    </Text>
+                    {isSaving ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text
+                        style={[
+                          styles.saveButtonText,
+                          isFormValid && styles.saveButtonTextActive,
+                        ]}
+                      >
+                        {isEditing ? 'Update Entry →' : 'Save Entry →'}
+                      </Text>
+                    )}
                   </TouchableOpacity>
                 </View>
               </View>
