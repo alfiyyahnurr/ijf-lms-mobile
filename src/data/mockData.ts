@@ -303,14 +303,14 @@ export interface LiteracyReadingType {
 }
 
 export const LITERACY_READING_TYPES: LiteracyReadingType[] = [
-  { id: 'novel', label: 'Novel / Fiction', color: '#135E66' },
-  { id: 'nonfic', label: 'Non-Fiction / Memoir', color: '#1E293B' },
-  { id: 'article', label: 'Article / Essay', color: '#D97706' },
-  { id: 'journal', label: 'Academic Journal', color: '#7C3AED' },
-  { id: 'news', label: 'News / Current Affairs', color: '#E11D48' },
-  { id: 'poetry', label: 'Poetry / Literature', color: '#059669' },
-  { id: 'graphic', label: 'Graphic Novel / Comic', color: '#0D9488' },
-  { id: 'other', label: 'Other', color: '#64748B' },
+  { id: 'novel', label: 'Novel / Fiction', color: '#1A5F6E' },
+  { id: 'nonfic', label: 'Non-Fiction / Memoir', color: '#1B2D4F' },
+  { id: 'article', label: 'Article / Essay', color: '#B8842A' },
+  { id: 'journal', label: 'Academic Journal', color: '#6B5EA8' },
+  { id: 'news', label: 'News / Current Affairs', color: '#C0506A' },
+  { id: 'poetry', label: 'Poetry / Literature', color: '#2E7D52' },
+  { id: 'graphic', label: 'Graphic Novel / Comic', color: '#2A7F91' },
+  { id: 'other', label: 'Other', color: '#78716C' },
 ];
 
 export const LITERACY_TYPES: string[] = LITERACY_READING_TYPES.map((t) => t.label);
@@ -354,7 +354,7 @@ export function getReadingTypeId(idOrLabel?: string | null): string {
 }
 
 export function getReadingTypeColor(idOrLabel?: string | null): string {
-  if (!idOrLabel) return '#135E66';
+  if (!idOrLabel) return '#1A5F6E';
   const trimmed = idOrLabel.trim();
   const found = LITERACY_READING_TYPES.find(
     (t) => t.id.toLowerCase() === trimmed.toLowerCase() || t.label.toLowerCase() === trimmed.toLowerCase()
@@ -362,18 +362,27 @@ export function getReadingTypeColor(idOrLabel?: string | null): string {
   if (found) return found.color;
 
   const lower = trimmed.toLowerCase();
-  if (lower.includes('nonfic') || lower.includes('memoir')) return '#1E293B';
-  if (lower.includes('article') || lower.includes('essay')) return '#D97706';
-  if (lower.includes('journal')) return '#7C3AED';
-  if (lower.includes('news')) return '#E11D48';
-  if (lower.includes('poetry') || lower.includes('literature')) return '#059669';
-  if (lower.includes('graphic') || lower.includes('comic')) return '#0D9488';
-  if (lower.includes('other')) return '#64748B';
-  return '#135E66';
+  if (lower.includes('nonfic') || lower.includes('memoir')) return '#1B2D4F';
+  if (lower.includes('article') || lower.includes('essay')) return '#B8842A';
+  if (lower.includes('journal')) return '#6B5EA8';
+  if (lower.includes('news')) return '#C0506A';
+  if (lower.includes('poetry') || lower.includes('literature')) return '#2E7D52';
+  if (lower.includes('graphic') || lower.includes('comic')) return '#2A7F91';
+  if (lower.includes('other')) return '#78716C';
+  return '#1A5F6E';
+}
+
+export function getReadingTypeTheme(idOrLabel?: string | null) {
+  const color = getReadingTypeColor(idOrLabel);
+  return {
+    color,
+    bg: `${color}18`,
+    border: `${color}30`,
+  };
 }
 
 export function getRatingLabel(val?: number | string | null): string {
-  if (val == null) return 'Outstanding ★★★★★';
+  if (val == null || val === '' || val === 0) return '';
   if (typeof val === 'number') {
     switch (Math.round(val)) {
       case 5: return 'Outstanding ★★★★★';
@@ -385,6 +394,7 @@ export function getRatingLabel(val?: number | string | null): string {
     }
   }
   const str = String(val).trim();
+  if (!str) return '';
   if (str === '5') return 'Outstanding ★★★★★';
   if (str === '4') return 'Very good ★★★★';
   if (str === '3') return 'Good ★★★';
@@ -399,20 +409,21 @@ export function getRatingLabel(val?: number | string | null): string {
   if (!isNaN(parsedNum) && parsedNum >= 1 && parsedNum <= 5) {
     return getRatingLabel(parsedNum);
   }
-  return 'Outstanding ★★★★★';
+  return '';
 }
 
-export function getRatingScore(labelOrVal?: number | string | null): number {
-  if (labelOrVal == null) return 5;
+export function getRatingScore(labelOrVal?: number | string | null): number | null {
+  if (labelOrVal == null || labelOrVal === '' || labelOrVal === 0) return null;
   if (typeof labelOrVal === 'number') {
     return Math.max(1, Math.min(5, Math.round(labelOrVal)));
   }
   const str = String(labelOrVal).trim();
+  if (!str) return null;
   const stars = (str.match(/[★⭐]/g) || []).length;
   if (stars >= 1 && stars <= 5) return stars;
   const num = parseInt(str, 10);
   if (!isNaN(num) && num >= 1 && num <= 5) return num;
-  return 5;
+  return null;
 }
 
 export const LITERACY_LANGUAGES = [

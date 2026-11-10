@@ -31,6 +31,7 @@ import {
   getReadingTypeLabel,
   getReadingTypeId,
   getReadingTypeColor,
+  getReadingTypeTheme,
   getRatingLabel,
   getRatingScore,
 } from '../../data/mockData';
@@ -57,10 +58,10 @@ const DEFAULT_EMPTY_FORM: LiteracyFormData = {
   author: '',
   type: 'Novel / Fiction',
   language: 'English',
-  genre: 'Historical Fiction',
+  genre: '',
   pagesOrLength: '',
   dateFinished: getTodayJakartaStr(),
-  rating: 'Outstanding ★★★★★',
+  rating: '',
   vocabulary: '',
   reflectionClaimPrompt: '',
   reflectionClaimText: '',
@@ -398,11 +399,11 @@ export const LiteracyScreen: React.FC = () => {
           readingType: getReadingTypeId(formData.type),
           type: getReadingTypeLabel(formData.type),
           language: formData.language || 'English',
-          genre: formData.genre || 'Historical Fiction',
+          genre: formData.genre.trim() || undefined,
           pagesOrLength: formData.pagesOrLength.trim() || '—',
           finishedDate,
           dateFinished: finishedDate,
-          rating: getRatingScore(formData.rating),
+          rating: getRatingScore(formData.rating) ?? undefined,
           vocabulary: formData.vocabulary.trim(),
           claimPrompt: formData.reflectionClaimPrompt,
           claim: formData.reflectionClaimText.trim(),
@@ -424,11 +425,11 @@ export const LiteracyScreen: React.FC = () => {
           readingType: getReadingTypeId(formData.type),
           type: getReadingTypeLabel(formData.type),
           language: formData.language || 'English',
-          genre: formData.genre || 'Historical Fiction',
+          genre: formData.genre.trim() || undefined,
           pagesOrLength: formData.pagesOrLength.trim() || '—',
           finishedDate,
           dateFinished: finishedDate,
-          rating: getRatingScore(formData.rating),
+          rating: getRatingScore(formData.rating) ?? undefined,
           vocabulary: formData.vocabulary.trim(),
           claimPrompt: formData.reflectionClaimPrompt,
           claim: formData.reflectionClaimText.trim(),
@@ -464,7 +465,7 @@ export const LiteracyScreen: React.FC = () => {
       author: selectedEntry.author,
       type: getReadingTypeLabel(selectedEntry.type || selectedEntry.readingType),
       language: selectedEntry.language || 'English',
-      genre: selectedEntry.genre || 'Historical Fiction',
+      genre: selectedEntry.genre || '',
       pagesOrLength: selectedEntry.pagesOrLength === '—' ? '' : selectedEntry.pagesOrLength,
       dateFinished: finished,
       rating: getRatingLabel(selectedEntry.rating),
@@ -557,6 +558,7 @@ export const LiteracyScreen: React.FC = () => {
   // Helper to format pure gold rating stars with 5 stars total matching Image 5
   const formatRatingStars = (rating?: string | number | null): string => {
     const score = getRatingScore(rating);
+    if (!score) return '';
     return '★'.repeat(score) + '☆'.repeat(5 - score);
   };
 
@@ -711,18 +713,6 @@ export const LiteracyScreen: React.FC = () => {
                         {selectedEntry.sowhat || '—'}
                       </Text>
                     </View>
-
-                    {/* Connection to the real world if present */}
-                    {Boolean(selectedEntry.connection) && (
-                      <View style={styles.detailStepBoxConnection}>
-                        <Text style={styles.detailStepLabelConnection}>
-                          CONNECTION TO THE REAL WORLD
-                        </Text>
-                        <Text style={styles.detailStepBodyText}>
-                          {selectedEntry.connection}
-                        </Text>
-                      </View>
-                    )}
                   </View>
                 </View>
 
@@ -784,57 +774,81 @@ export const LiteracyScreen: React.FC = () => {
                   </View>
                 ) : (
                   <View style={styles.entryList}>
-                    {entries.map((entry) => (
-                      <TouchableOpacity
-                        key={entry.id}
-                        style={styles.entryCard}
-                        onPress={() => setSelectedEntry(entry)}
-                        activeOpacity={0.85}
-                      >
-                        {/* Left Vertical Accent Line (Deep Teal) */}
-                        <View style={styles.leftAccentLine} />
+                    {entries.map((entry) => {
+                      const typeTheme = getReadingTypeTheme(entry.type || entry.readingType);
+                      return (
+                        <TouchableOpacity
+                          key={entry.id}
+                          style={styles.entryCard}
+                          onPress={() => setSelectedEntry(entry)}
+                          activeOpacity={0.85}
+                        >
+                          {/* Left Vertical Accent Line (Dynamic Color matching Type) */}
+                          <View
+                            style={[
+                              styles.leftAccentLine,
+                              { backgroundColor: typeTheme.color },
+                            ]}
+                          />
 
-                        {/* Content Right */}
-                        <View style={styles.entryContentCol}>
-                          {/* Row 1: Title on left, Date on right */}
-                          <View style={styles.entryRowTop}>
-                            <Text style={styles.entryTitleText} numberOfLines={1}>
-                              {entry.title}
-                            </Text>
-                            <Text style={styles.entryDateText}>
-                              {formatDisplayDate(entry.dateFinished || entry.finishedDate)}
-                            </Text>
-                          </View>
-
-                          {/* Row 2: Author on left, Pure Gold Stars on right */}
-                          <View style={styles.entryRowSecond}>
-                            <Text style={styles.entryAuthorText}>{entry.author}</Text>
-                            <Text style={styles.entryGoldStars}>
-                              {formatRatingStars(entry.rating)}
-                            </Text>
-                          </View>
-
-                          {/* Row 3: Pills (Type in soft teal & Genre in soft sand) */}
-                          <View style={styles.entryPillRow}>
-                            <View style={styles.typePill}>
-                              <Text style={styles.typePillText}>
-                                {getReadingTypeLabel(entry.type || entry.readingType)}
+                          {/* Content Right */}
+                          <View style={styles.entryContentCol}>
+                            {/* Row 1: Title on left, Date on right */}
+                            <View style={styles.entryRowTop}>
+                              <Text style={styles.entryTitleText} numberOfLines={1}>
+                                {entry.title}
+                              </Text>
+                              <Text style={styles.entryDateText}>
+                                {formatDisplayDate(entry.dateFinished || entry.finishedDate)}
                               </Text>
                             </View>
-                            <View style={styles.genrePill}>
-                              <Text style={styles.genrePillText}>
-                                {entry.genre || 'Historical Fiction'}
+
+                            {/* Row 2: Author on left, Pure Gold Stars on right */}
+                            <View style={styles.entryRowSecond}>
+                              <Text style={styles.entryAuthorText}>{entry.author}</Text>
+                              <Text style={styles.entryGoldStars}>
+                                {formatRatingStars(entry.rating)}
                               </Text>
                             </View>
-                          </View>
 
-                          {/* Row 4: Reflection Italic Quote */}
-                          <Text style={styles.entryQuoteText} numberOfLines={2}>
-                            “{entry.claim || entry.reflectionText || '—'}”
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
+                            {/* Row 3: Pills (Type with dynamic color & Genre in soft sand) */}
+                            <View style={styles.entryPillRow}>
+                              <View
+                                style={[
+                                  styles.typePill,
+                                  {
+                                    backgroundColor: typeTheme.bg,
+                                    borderColor: typeTheme.border,
+                                    borderWidth: 1,
+                                  },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.typePillText,
+                                    { color: typeTheme.color },
+                                  ]}
+                                >
+                                  {getReadingTypeLabel(entry.type || entry.readingType)}
+                                </Text>
+                              </View>
+                              {Boolean(entry.genre) && (
+                                <View style={styles.genrePill}>
+                                  <Text style={styles.genrePillText}>
+                                    {entry.genre}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+
+                            {/* Row 4: Reflection Italic Quote */}
+                            <Text style={styles.entryQuoteText} numberOfLines={2}>
+                              “{entry.claim || entry.reflectionText || '—'}”
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 )}
               </View>
@@ -953,7 +967,7 @@ export const LiteracyScreen: React.FC = () => {
                         style={styles.dropdownButton}
                         onPress={() =>
                           setDropdownModal({
-                            title: 'Select genre...',
+                            title: 'Select genre',
                             options: LITERACY_GENRES,
                             selected: formData.genre,
                             onSelect: (val) => updateFormField('genre', val),
@@ -968,7 +982,7 @@ export const LiteracyScreen: React.FC = () => {
                           ]}
                           numberOfLines={1}
                         >
-                          {formData.genre || 'Select genre...'}
+                          {formData.genre || 'Select genre'}
                         </Text>
                         <Ionicons name="chevron-down" size={15} color="#475569" />
                       </TouchableOpacity>
@@ -1015,7 +1029,7 @@ export const LiteracyScreen: React.FC = () => {
                         style={styles.dropdownButton}
                         onPress={() =>
                           setDropdownModal({
-                            title: 'Rate this...',
+                            title: 'Rate this',
                             options: LITERACY_RATINGS,
                             selected: formData.rating,
                             onSelect: (val) => updateFormField('rating', val),
@@ -1030,7 +1044,7 @@ export const LiteracyScreen: React.FC = () => {
                           ]}
                           numberOfLines={1}
                         >
-                          {formData.rating || 'Rate this...'}
+                          {formData.rating || 'Rate this'}
                         </Text>
                         <Ionicons name="chevron-down" size={15} color="#475569" />
                       </TouchableOpacity>
@@ -1752,10 +1766,12 @@ const styles = StyleSheet.create({
     color: '#1A5F6E',
   },
   genrePill: {
-    backgroundColor: '#F5F3EF',
+    backgroundColor: '#F7F3EC',
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E0D8',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 3,
   },
   genrePillText: {
     fontFamily: FONTS.medium,
