@@ -49,6 +49,11 @@ import {
   HABIT_GROUPS_INITIAL,
   MOCK_PUBLISHED_CARDS_SUMMARY,
   MOCK_PUBLISHED_CARDS_DETAIL,
+  getReadingTypeLabel,
+  getReadingTypeId,
+  getReadingTypeColor,
+  getRatingLabel,
+  getRatingScore,
 } from '../data/mockData';
 
 export const API_BASE_URL = 'https://learn.kreativaglobal.sch.id';
@@ -149,18 +154,19 @@ function mapLogToEntry(log: any): LiteracyEntry {
     ? log.vocab.map((v: any) => (typeof v === 'string' ? v : v.term || '')).filter(Boolean)
     : [];
   const finishedDate = (log.finished_date ? String(log.finished_date).slice(0, 10) : '') || new Date().toISOString().slice(0, 10);
+  const rawType = log.reading_type || log.readingType || log.type || 'novel';
   return {
     id: log.id,
     title: log.title || '',
     author: log.author || '',
-    readingType: log.reading_type || log.readingType || 'other',
-    type: log.reading_type || log.type || 'other',
+    readingType: getReadingTypeId(rawType),
+    type: getReadingTypeLabel(rawType),
     language: log.language || 'English',
     genre: log.genre || '',
     pagesOrLength: log.pages_or_length || log.pagesOrLength || '',
     finishedDate,
     dateFinished: finishedDate,
-    rating: log.rating != null ? Number(log.rating) : 0,
+    rating: log.rating != null ? (parseRatingNumber(log.rating) ?? 5) : 5,
     vocab: vocabTerms,
     vocabulary: vocabTerms.join(', '),
     claim: log.claim || '',
@@ -1192,23 +1198,13 @@ export const api = {
     // POST {{baseUrl}}/api/student/literacy
     create: async (payload: Partial<LiteracyEntry>): Promise<{ entry: LiteracyEntry; pointsAwarded: number; message?: string }> => {
       const finishedDate = normalizeToDateOnly(payload.finishedDate || payload.dateFinished);
-      const ratingNum = parseRatingNumber(payload.rating);
+      const ratingNum = parseRatingNumber(payload.rating) ?? 5;
       const vocabRaw = payload.vocab || payload.vocabulary || [];
       const vocabArray = Array.isArray(vocabRaw)
         ? vocabRaw.map(String).map((s: string) => s.trim()).filter(Boolean)
         : String(vocabRaw).split(',').map((s: string) => s.trim()).filter(Boolean);
 
-      const readingType = (payload.readingType || payload.type || 'novel').toLowerCase();
-      let readingTypeId = 'novel';
-      if (readingType.includes('nonfic') || readingType.includes('non-fic') || readingType.includes('memoir')) readingTypeId = 'nonfic';
-      else if (readingType.includes('article') || readingType.includes('essay')) readingTypeId = 'article';
-      else if (readingType.includes('journal')) readingTypeId = 'journal';
-      else if (readingType.includes('news')) readingTypeId = 'news';
-      else if (readingType.includes('poetry') || readingType.includes('literature')) readingTypeId = 'poetry';
-      else if (readingType.includes('graphic') || readingType.includes('comic')) readingTypeId = 'graphic';
-      else if (readingType.includes('other')) readingTypeId = 'other';
-      else if (readingType.includes('novel') || readingType.includes('fiction')) readingTypeId = 'novel';
-      else readingTypeId = payload.readingType || payload.type || 'novel';
+      const readingTypeId = getReadingTypeId(payload.readingType || payload.type);
 
       const backendBody = {
         title: String(payload.title || '').trim(),
@@ -1254,7 +1250,9 @@ export const api = {
       const backendBody: any = {};
       if (payload.title !== undefined) backendBody.title = String(payload.title).trim();
       if (payload.author !== undefined) backendBody.author = payload.author ? String(payload.author).trim() : null;
-      if (payload.readingType || payload.type) backendBody.reading_type = payload.readingType || payload.type;
+      if (payload.readingType || payload.type) {
+        backendBody.reading_type = getReadingTypeId(payload.readingType || payload.type);
+      }
       if (payload.genre !== undefined) backendBody.genre = payload.genre;
       if (payload.language !== undefined) backendBody.language = payload.language;
       if (payload.pagesOrLength !== undefined) backendBody.pages_or_length = payload.pagesOrLength;

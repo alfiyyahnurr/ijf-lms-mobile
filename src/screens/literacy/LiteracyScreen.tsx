@@ -24,9 +24,15 @@ import {
   LITERACY_LANGUAGES,
   LITERACY_GENRES,
   LITERACY_RATINGS,
+  LITERACY_PROMPTS_BY_TRACK,
   LITERACY_CLAIM_PROMPTS,
   LITERACY_EVIDENCE_PROMPTS,
   LITERACY_SO_WHAT_PROMPTS,
+  getReadingTypeLabel,
+  getReadingTypeId,
+  getReadingTypeColor,
+  getRatingLabel,
+  getRatingScore,
 } from '../../data/mockData';
 import { LiteracyEntry, LiteracyFormData, LiteracyProgressStats } from '../../types';
 import { useStudentData } from '../../context/StudentDataContext';
@@ -307,6 +313,38 @@ export const LiteracyScreen: React.FC = () => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
+  // Dynamic prompts based on track (SMP vs SMA)
+  const currentTrack = useMemo<'smp' | 'sma'>(() => {
+    const raw = (liveStats?.schoolLevel || liveStats?.level || '').toLowerCase();
+    if (raw.includes('smp') || raw.includes('middle')) return 'smp';
+    return 'sma';
+  }, [liveStats]);
+
+  const currentPrompts = useMemo(() => {
+    return LITERACY_PROMPTS_BY_TRACK[currentTrack] || LITERACY_PROMPTS_BY_TRACK.sma;
+  }, [currentTrack]);
+
+  const claimPrompts = useMemo(() => {
+    if (formData.reflectionClaimPrompt && !currentPrompts.claim.includes(formData.reflectionClaimPrompt)) {
+      return [formData.reflectionClaimPrompt, ...currentPrompts.claim];
+    }
+    return currentPrompts.claim;
+  }, [formData.reflectionClaimPrompt, currentPrompts]);
+
+  const evidencePrompts = useMemo(() => {
+    if (formData.reflectionEvidencePrompt && !currentPrompts.evidence.includes(formData.reflectionEvidencePrompt)) {
+      return [formData.reflectionEvidencePrompt, ...currentPrompts.evidence];
+    }
+    return currentPrompts.evidence;
+  }, [formData.reflectionEvidencePrompt, currentPrompts]);
+
+  const soWhatPrompts = useMemo(() => {
+    if (formData.reflectionSoWhatPrompt && !currentPrompts.sowhat.includes(formData.reflectionSoWhatPrompt)) {
+      return [formData.reflectionSoWhatPrompt, ...currentPrompts.sowhat];
+    }
+    return currentPrompts.sowhat;
+  }, [formData.reflectionSoWhatPrompt, currentPrompts]);
+
   // Progressive disclosure conditions for Reflection steps
   const hasClaimPrompt = Boolean(formData.reflectionClaimPrompt);
   const isClaimCompleted = hasClaimPrompt && formData.reflectionClaimText.trim().length > 0;
@@ -357,14 +395,14 @@ export const LiteracyScreen: React.FC = () => {
         const updated = await api.literacy.update(selectedEntry.id, {
           title: formData.title.trim(),
           author: formData.author.trim(),
-          readingType: formData.type || 'Novel / Fiction',
-          type: formData.type || 'Novel / Fiction',
+          readingType: getReadingTypeId(formData.type),
+          type: getReadingTypeLabel(formData.type),
           language: formData.language || 'English',
           genre: formData.genre || 'Historical Fiction',
           pagesOrLength: formData.pagesOrLength.trim() || '—',
           finishedDate,
           dateFinished: finishedDate,
-          rating: formData.rating,
+          rating: getRatingScore(formData.rating),
           vocabulary: formData.vocabulary.trim(),
           claimPrompt: formData.reflectionClaimPrompt,
           claim: formData.reflectionClaimText.trim(),
@@ -383,14 +421,14 @@ export const LiteracyScreen: React.FC = () => {
         const result = await api.literacy.create({
           title: formData.title.trim(),
           author: formData.author.trim(),
-          readingType: formData.type || 'Novel / Fiction',
-          type: formData.type || 'Novel / Fiction',
+          readingType: getReadingTypeId(formData.type),
+          type: getReadingTypeLabel(formData.type),
           language: formData.language || 'English',
           genre: formData.genre || 'Historical Fiction',
           pagesOrLength: formData.pagesOrLength.trim() || '—',
           finishedDate,
           dateFinished: finishedDate,
-          rating: formData.rating,
+          rating: getRatingScore(formData.rating),
           vocabulary: formData.vocabulary.trim(),
           claimPrompt: formData.reflectionClaimPrompt,
           claim: formData.reflectionClaimText.trim(),
@@ -424,25 +462,25 @@ export const LiteracyScreen: React.FC = () => {
     setFormData({
       title: selectedEntry.title,
       author: selectedEntry.author,
-      type: selectedEntry.type || selectedEntry.readingType || 'Novel / Fiction',
+      type: getReadingTypeLabel(selectedEntry.type || selectedEntry.readingType),
       language: selectedEntry.language || 'English',
       genre: selectedEntry.genre || 'Historical Fiction',
       pagesOrLength: selectedEntry.pagesOrLength === '—' ? '' : selectedEntry.pagesOrLength,
       dateFinished: finished,
-      rating: String(selectedEntry.rating || 'Outstanding ★★★★★'),
+      rating: getRatingLabel(selectedEntry.rating),
       vocabulary:
         selectedEntry.vocabulary ||
         (selectedEntry.vocab ? selectedEntry.vocab.join(', ') : ''),
       reflectionClaimPrompt:
         selectedEntry.claimPrompt ||
         selectedEntry.reflectionClaim ||
-        LITERACY_CLAIM_PROMPTS[0],
+        currentPrompts.claim[0],
       reflectionClaimText: selectedEntry.claim || selectedEntry.reflectionText || '',
       reflectionEvidencePrompt:
-        selectedEntry.evidencePrompt || LITERACY_EVIDENCE_PROMPTS[0],
+        selectedEntry.evidencePrompt || currentPrompts.evidence[0],
       reflectionEvidenceText: selectedEntry.evidence || '',
       reflectionSoWhatPrompt:
-        selectedEntry.sowhatPrompt || LITERACY_SO_WHAT_PROMPTS[0],
+        selectedEntry.sowhatPrompt || currentPrompts.sowhat[0],
       reflectionSoWhatText: selectedEntry.sowhat || '',
       connection: selectedEntry.connection || '',
     });
@@ -517,21 +555,8 @@ export const LiteracyScreen: React.FC = () => {
   };
 
   // Helper to format pure gold rating stars with 5 stars total matching Image 5
-  const formatRatingStars = (rating?: string | number): string => {
-    let score = 5;
-    if (typeof rating === 'number') {
-      score = Math.max(1, Math.min(5, Math.round(rating)));
-    } else if (rating) {
-      const match = String(rating).match(/[★⭐]/g);
-      if (match) {
-        score = Math.max(1, Math.min(5, match.length));
-      } else {
-        const num = parseInt(String(rating), 10);
-        if (!isNaN(num)) {
-          score = Math.max(1, Math.min(5, num));
-        }
-      }
-    }
+  const formatRatingStars = (rating?: string | number | null): string => {
+    const score = getRatingScore(rating);
     return '★'.repeat(score) + '☆'.repeat(5 - score);
   };
 
@@ -644,10 +669,19 @@ export const LiteracyScreen: React.FC = () => {
                   <Text style={styles.backToLogText}>Back to log</Text>
                 </TouchableOpacity>
 
-                {/* Main Card with Dark Teal Header Banner */}
+                {/* Main Card with Dynamic Header Banner matching reading type */}
                 <View style={styles.detailCard}>
-                  {/* Dark Teal Header Banner */}
-                  <View style={styles.detailHeaderBanner}>
+                  {/* Dynamic Color Header Banner (Web LMS parity) */}
+                  <View
+                    style={[
+                      styles.detailHeaderBanner,
+                      {
+                        backgroundColor: getReadingTypeColor(
+                          selectedEntry.readingType || selectedEntry.type
+                        ),
+                      },
+                    ]}
+                  >
                     <Text style={styles.detailBannerTitle}>{selectedEntry.title}</Text>
                     <Text style={styles.detailBannerAuthor}>{selectedEntry.author}</Text>
                   </View>
@@ -666,7 +700,7 @@ export const LiteracyScreen: React.FC = () => {
                     <View style={styles.detailStepBoxEvidence}>
                       <Text style={styles.detailStepLabelEvidence}>E EVIDENCE</Text>
                       <Text style={styles.detailStepBodyText}>
-                        {selectedEntry.evidence || selectedEntry.claim || '—'}
+                        {selectedEntry.evidence || '—'}
                       </Text>
                     </View>
 
@@ -674,8 +708,7 @@ export const LiteracyScreen: React.FC = () => {
                     <View style={styles.detailStepBoxSoWhat}>
                       <Text style={styles.detailStepLabelSoWhat}>S SO WHAT?</Text>
                       <Text style={styles.detailStepBodyText}>
-                        {selectedEntry.sowhat ||
-                          'Cultivating empathy builds fairness, equity, and compassion in society.'}
+                        {selectedEntry.sowhat || '—'}
                       </Text>
                     </View>
 
@@ -785,7 +818,7 @@ export const LiteracyScreen: React.FC = () => {
                           <View style={styles.entryPillRow}>
                             <View style={styles.typePill}>
                               <Text style={styles.typePillText}>
-                                {entry.type || entry.readingType || 'Novel / Fiction'}
+                                {getReadingTypeLabel(entry.type || entry.readingType)}
                               </Text>
                             </View>
                             <View style={styles.genrePill}>
@@ -797,7 +830,7 @@ export const LiteracyScreen: React.FC = () => {
 
                           {/* Row 4: Reflection Italic Quote */}
                           <Text style={styles.entryQuoteText} numberOfLines={2}>
-                            “{entry.claim || entry.reflectionText || 'Empathy is essential to understanding human behavior before making judgments.'}”
+                            “{entry.claim || entry.reflectionText || '—'}”
                           </Text>
                         </View>
                       </TouchableOpacity>
@@ -1050,7 +1083,7 @@ export const LiteracyScreen: React.FC = () => {
 
                     {/* Radio Options for Claim */}
                     <View style={styles.radioGroup}>
-                      {LITERACY_CLAIM_PROMPTS.map((prompt) => {
+                      {claimPrompts.map((prompt) => {
                         const isSelected = formData.reflectionClaimPrompt === prompt;
                         return (
                           <TouchableOpacity
@@ -1126,7 +1159,7 @@ export const LiteracyScreen: React.FC = () => {
 
                       {/* Radio Options for Evidence */}
                       <View style={styles.radioGroup}>
-                        {LITERACY_EVIDENCE_PROMPTS.map((prompt) => {
+                        {evidencePrompts.map((prompt) => {
                           const isSelected = formData.reflectionEvidencePrompt === prompt;
                           return (
                             <TouchableOpacity
@@ -1203,7 +1236,7 @@ export const LiteracyScreen: React.FC = () => {
 
                       {/* Radio Options for So What? */}
                       <View style={styles.radioGroup}>
-                        {LITERACY_SO_WHAT_PROMPTS.map((prompt) => {
+                        {soWhatPrompts.map((prompt) => {
                           const isSelected = formData.reflectionSoWhatPrompt === prompt;
                           return (
                             <TouchableOpacity
