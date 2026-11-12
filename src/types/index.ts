@@ -359,3 +359,77 @@ export type PublishedCard = {
   aspects: SshsAspectBlock[];
 };
 
+
+export interface DashboardStats {
+  activeCourses: number;
+  pendingAssignments: number;
+  upcomingExams: number;
+  sessionsThisWeek: number;
+}
+
+export interface DashboardPoints {
+  total: number;
+  discipline: number;
+  literacy: number;
+  habits: number;
+  houseName: string | null;
+  houseRank: number | null;
+  houseTotal: number | null;
+}
+
+export interface DashboardUpcomingSession {
+  id: number;
+  title: string;
+  courseName: string;
+  course_name?: string;
+  sessionDate: string;
+  session_date?: string;
+  startTime: string | null;
+  start_time?: string | null;
+  status: string;
+}
+
+export interface DashboardPendingAssignment {
+  id: number;
+  title: string;
+  courseId: number;
+  course_id?: number;
+  courseName: string;
+  course_name?: string;
+  dueDate: string | null;
+  due_date?: string | null;
+}
+
+export interface DashboardRecentScore {
+  title: string;
+  courseName: string;
+  course_name?: string;
+  score: number;
+  maxScore: number;
+  max_score?: number;
+}
+
+export interface DashboardAnnouncementItem {
+  id: number;
+  title: string;
+  content: string;
+  publishAt?: string | null;
+  publish_at?: string | null;
+  createdByName?: string;
+}
+
+export interface DashboardData {
+  stats: DashboardStats;
+  points: DashboardPoints | null;
+  upcomingSessions: DashboardUpcomingSession[];
+  pendingAssignments: DashboardPendingAssignment[];
+  recentScores: DashboardRecentScore[];
+  announcements: DashboardAnnouncementItem[];
+  studentProfile?: {
+    fullName?: string;
+    className?: string | null;
+    schoolName?: string;
+    houseName?: string | null;
+    academicYearName?: string | null;
+  };
+}

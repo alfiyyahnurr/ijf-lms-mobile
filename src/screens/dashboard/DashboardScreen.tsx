@@ -1,12 +1,11 @@
 import React, { useRef, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, RADIUS, SPACING, FONTS } from '../../constants/theme';
 import { DrawerParamList } from '../../types/navigation';
-import { WEEKLY_SCHEDULE } from '../../data/mockData';
 import { useStudentData } from '../../context/StudentDataContext';
 import AppHeader from '../../components/navigation/AppHeader';
 import Card from '../../components/common/Card';
@@ -18,35 +17,60 @@ export const DashboardScreen: React.FC = () => {
   const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
   const {
     studentProfile,
-    courses,
-    assignments,
-    exams,
-    announcements,
-    grades,
+    dashboardData,
+    isDashboardLoading,
+    fetchDashboardData,
     isRefreshing,
     isError,
     errorMessage,
     refreshAllData,
   } = useStudentData();
 
-  const upcomingSessions = [
-    { id: 1, title: 'W8 · Chemistry · Stoichiometry', courseName: 'Chemistry IGCSE — S4 A 2026/2027', status: 'scheduled' },
-    { id: 2, title: 'W8 · Mathematics · Quadratic Equations', courseName: 'Mathematics IGCSE — S4 A 2026/2027', status: 'scheduled' },
-    { id: 3, title: 'W8 · Physics · Kinematics Lab', courseName: 'Physics IGCSE — S4 A 2026/2027', status: 'scheduled' },
-  ];
-
-  const pendingAssignmentsCount = assignments.filter(
-    (assignment) => assignment.status === 'pending'
-  ).length;
-
-  const upcomingExamsCount = exams.filter(
-    (exam) => exam.status === 'upcoming'
-  ).length;
-
-  const sessionsThisWeekCount = Object.values(WEEKLY_SCHEDULE).reduce(
-    (total, sessions) => total + sessions.length,
-    0
+  // Auto-refresh live dashboard data on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchDashboardData();
+    }, [fetchDashboardData])
   );
+
+  const formatDueDate = (dateStr?: string | null) => {
+    if (!dateStr) return 'N/A';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // 1. Stats from Live Backend API
+  const activeCoursesCount = dashboardData?.stats?.activeCourses ?? 0;
+  const pendingAssignmentsCount = dashboardData?.stats?.pendingAssignments ?? 0;
+  const upcomingExamsCount = dashboardData?.stats?.upcomingExams ?? 0;
+  const sessionsThisWeekCount = dashboardData?.stats?.sessionsThisWeek ?? 0;
+
+  // 2. Points & House from Live Backend API
+  const totalPoints = dashboardData?.points?.total ?? studentProfile.points;
+  const disciplinePts = dashboardData?.points?.discipline ?? studentProfile.disciplinePts;
+  const literacyPts = dashboardData?.points?.literacy ?? studentProfile.literacyPts;
+  const habitsPts = dashboardData?.points?.habits ?? studentProfile.habitsPts;
+  const houseName = dashboardData?.points?.houseName || studentProfile.house || 'Unassigned';
+  const houseRank = dashboardData?.points?.houseRank;
+  const houseTotal = dashboardData?.points?.houseTotal ?? 0;
+
+  // 3. Upcoming Sessions from Live Backend API (empty array if student has 0 sessions)
+  const sessionsList = dashboardData?.upcomingSessions ?? [];
+
+  // 4. Pending Assignments from Live Backend API (empty array if 0 assignments)
+  const pendingList = dashboardData?.pendingAssignments ?? [];
+
+  // 5. Recent Scores from Live Backend API (empty array if 0 scores)
+  const scoresList = dashboardData?.recentScores ?? [];
+
+  // 6. Announcements from Live Backend API (max 2 items matching Web LMS)
+  const announcementsList = dashboardData?.announcements ? dashboardData.announcements.slice(0, 2) : [];
 
   const route = useRoute<any>();
   const scrollRef = useRef<any>(null);
@@ -72,6 +96,18 @@ export const DashboardScreen: React.FC = () => {
       scrollRef.current?.scrollTo({ y: 0, animated: false });
     }
   }, [route.params?.resetKey]);
+
+  if (isDashboardLoading && !dashboardData) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <AppHeader showTitle={false} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4F089F" />
+          <Text style={styles.loadingText}>Loading dashboard...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -105,10 +141,10 @@ export const DashboardScreen: React.FC = () => {
           />
         ) : (
           <>
-            {/* 4 Stat Cards Stacked Full Width matching Screenshot 105517 */}
+            {/* 4 Stat Cards Stacked Full Width matching Web LMS */}
         <View style={styles.statStack}>
           <StatCard
-            value={courses.length}
+            value={activeCoursesCount}
             label="Active Courses"
             icon="book-outline"
             iconColor="#2563EB"
@@ -137,7 +173,7 @@ export const DashboardScreen: React.FC = () => {
           />
         </View>
 
-        {/* MY POINTS Card matching Screenshot 105530 */}
+        {/* MY POINTS Card matching Web LMS */}
         <Card accentBorder="blue" style={styles.sectionCard}>
           <View style={styles.cardHeaderFlex}>
             <View style={styles.labelRow}>
@@ -149,17 +185,17 @@ export const DashboardScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.pointsValue}>{studentProfile.points}</Text>
+          <Text style={styles.pointsValue}>{totalPoints}</Text>
 
           <View style={styles.badgeRow}>
-            <Badge color="purple">Discipline {studentProfile.disciplinePts}</Badge>
-            <Badge color="teal">Literacy {studentProfile.literacyPts}</Badge>
-            <Badge color="green">Habits {studentProfile.habitsPts}</Badge>
+            <Badge color="purple">Discipline {disciplinePts}</Badge>
+            <Badge color="teal">Literacy {literacyPts}</Badge>
+            <Badge color="green">Habits {habitsPts}</Badge>
           </View>
         </Card>
 
-        {/* HOUSE STANDING Card matching Screenshot 105530 */}
-        <Card accentBorder="green" style={styles.sectionCard}>
+        {/* HOUSE STANDING Card matching Web LMS (teal accent) */}
+        <Card accentColor="teal" style={styles.sectionCard}>
           <View style={styles.cardHeaderFlex}>
             <View style={styles.labelRow}>
               <Ionicons name="home-outline" size={15} color="#64748B" />
@@ -170,69 +206,70 @@ export const DashboardScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.houseName}>{studentProfile.house || 'No House Assigned'}</Text>
-          <Text style={styles.houseDesc}>{studentProfile.house ? 'No house ranking yet' : 'Not assigned to any house'}</Text>
+          <Text style={styles.houseName}>{houseName}</Text>
+          <Text style={styles.houseDesc}>
+            {houseRank != null
+              ? `Rank #${houseRank} · ${houseTotal} house pts`
+              : (houseName !== 'Unassigned' ? 'No house ranking yet' : 'Not assigned to any house')}
+          </Text>
         </Card>
 
-        {/* Upcoming Sessions Card matching Web */}
+        {/* Upcoming Sessions Card matching Web LMS */}
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Upcoming Sessions</Text>
-          {upcomingSessions.length === 0 ? (
+          {sessionsList.length === 0 ? (
             <Text style={styles.emptyNotice}>No upcoming sessions.</Text>
           ) : (
             <View style={styles.subList}>
-              {upcomingSessions.map((s) => (
-                <View key={s.id} style={styles.subCardItem}>
+              {sessionsList.map((s: any, idx: number) => (
+                <View key={s.id || idx} style={styles.subCardItem}>
                   <View style={styles.subCardContent}>
                     <Text style={styles.subCardTitle} numberOfLines={1}>
                       {s.title}
                     </Text>
                     <Text style={styles.subCardSub} numberOfLines={1}>
-                      {s.courseName}
+                      {s.courseName || s.course_name || 'Course'}
                     </Text>
                   </View>
-                  <Badge color="blue">{s.status}</Badge>
+                  <Badge color="blue">{s.status || 'scheduled'}</Badge>
                 </View>
               ))}
             </View>
           )}
         </Card>
 
-        {/* Pending Assignments Card matching Screenshot 105543 */}
+        {/* Pending Assignments Card matching Web LMS ("All caught up!") */}
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Pending Assignments</Text>
 
-          {assignments.filter((item) => item.status === 'pending').length === 0 ? (
-            <Text style={styles.emptyNotice}>No pending assignments.</Text>
+          {pendingList.length === 0 ? (
+            <Text style={styles.emptyNotice}>All caught up!</Text>
           ) : (
             <>
               <View style={styles.subList}>
-                {assignments
-                  .filter((item) => item.status === 'pending')
-                  .slice(0, 3)
-                  .map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={styles.subCardItem}
-                      onPress={() =>
-                        (navigation as any).navigate('AssignmentsTab', {
-                          assignmentId: item.id,
-                          isDetail: true,
-                        })
-                      }
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.subCardContent}>
-                        <Text style={styles.subCardTitle} numberOfLines={2}>
-                          {item.title}
-                        </Text>
-                        <Text style={styles.subCardSub}>Due: {item.dueDate || 'N/A'}</Text>
-                      </View>
-                      <View style={styles.pendingPill}>
-                        <Text style={styles.pendingPillText}>Pending</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
+                {pendingList.map((item: any, idx: number) => (
+                  <TouchableOpacity
+                    key={item.id || idx}
+                    style={styles.subCardItem}
+                    onPress={() =>
+                      (navigation as any).navigate('AssignmentsTab', {
+                        assignmentId: item.id,
+                        isDetail: true,
+                      })
+                    }
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.subCardContent}>
+                      <Text style={styles.subCardTitle} numberOfLines={2}>
+                        {item.title}
+                      </Text>
+                      <Text style={styles.subCardSub}>Due: {formatDueDate(item.dueDate || item.due_date)}</Text>
+                    </View>
+                    <View style={styles.pendingPill}>
+                      <Text style={styles.pendingPillText}>Pending</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
               </View>
 
               <TouchableOpacity
@@ -246,40 +283,44 @@ export const DashboardScreen: React.FC = () => {
           )}
         </Card>
 
-        {/* Recent Scores Card matching Web */}
+        {/* Recent Scores Card matching Web LMS */}
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Recent Scores</Text>
-          {grades.length === 0 ? (
+          {scoresList.length === 0 ? (
             <Text style={styles.emptyNotice}>No scores yet.</Text>
           ) : (
             <View style={styles.subList}>
-              {grades.slice(0, 3).map((s, idx) => (
+              {scoresList.map((s: any, idx: number) => (
                 <View key={s.id || idx} style={styles.subCardItem}>
                   <View style={styles.subCardContent}>
                     <Text style={styles.subCardTitle} numberOfLines={1}>
-                      {s.subject}
+                      {s.title || s.subject}
                     </Text>
-                    <Text style={styles.subCardSub}>Term 1 Assessment</Text>
+                    <Text style={styles.subCardSub}>
+                      {s.courseName || s.course_name || 'Assessment'}
+                    </Text>
                   </View>
-                  <Text style={styles.scoreGreenText}>{s.score}/100</Text>
+                  <Text style={styles.scoreGreenText}>
+                    {s.score}/{s.maxScore ?? s.max_score ?? 100}
+                  </Text>
                 </View>
               ))}
             </View>
           )}
         </Card>
 
-        {/* Announcements Card matching Screenshot 105557 */}
+        {/* Announcements Card matching Web LMS */}
         <Card style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Announcements</Text>
 
-          {announcements.length === 0 ? (
+          {announcementsList.length === 0 ? (
             <Text style={styles.emptyNotice}>No announcements available.</Text>
           ) : (
             <>
               <View style={styles.subList}>
-                {announcements.map((item) => (
+                {announcementsList.map((item: any, idx: number) => (
                   <TouchableOpacity
-                    key={item.id}
+                    key={item.id || idx}
                     style={styles.announcementBox}
                     onPress={() => (navigation as any).navigate('AnnouncementsTab')}
                     activeOpacity={0.7}
@@ -520,6 +561,18 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '700',
     color: '#16A34A',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: SPACING.xxl,
+  },
+  loadingText: {
+    marginTop: SPACING.md,
+    fontSize: 14,
+    fontFamily: FONTS.medium,
+    color: COLORS.textMuted,
   },
 });
 

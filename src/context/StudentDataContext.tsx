@@ -15,6 +15,7 @@ import {
   LiteracyEntry,
   LiteracyProgressStats,
   Announcement,
+  DashboardData,
 } from '../types';
 
 import {
@@ -109,6 +110,10 @@ interface StudentDataContextType {
   getSessions: (courseId: number, courseName: string, total: number) => any;
   getSessionDetail: (session: any, course?: Course) => any;
   getWeeklyPlan: (weekStart: string) => WeeklyPlanSession[];
+  // Dashboard Live API Data
+  dashboardData: DashboardData | null;
+  isDashboardLoading: boolean;
+  fetchDashboardData: () => Promise<DashboardData | null>;
   // Async status & Refresh
   isLoading: boolean;
   isRefreshing: boolean;
@@ -136,11 +141,44 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Live Dashboard Data State
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [isDashboardLoading, setIsDashboardLoading] = useState(true);
+
+  const fetchDashboardData = useCallback(async (): Promise<DashboardData | null> => {
+    setIsDashboardLoading(true);
+    try {
+      const data = await api.dashboard.getDashboard();
+      if (data) {
+        setDashboardData(data);
+        if (data.points) {
+          setStudentProfile((prev) => ({
+            ...prev,
+            points: data.points?.total ?? prev.points,
+            disciplinePts: data.points?.discipline ?? prev.disciplinePts,
+            literacyPts: data.points?.literacy ?? prev.literacyPts,
+            habitsPts: data.points?.habits ?? prev.habitsPts,
+            house: data.points?.houseName ?? prev.house,
+          }));
+        }
+        return data;
+      }
+    } catch (err: any) {
+      console.warn('[Dashboard Fetch Warning]', err?.message || err);
+    } finally {
+      setIsDashboardLoading(false);
+    }
+    return null;
+  }, []);
+
   const refreshAllData = async () => {
     setIsRefreshing(true);
     setIsError(false);
     setErrorMessage(null);
     try {
+      // Sync dashboard data from live backend API
+      await fetchDashboardData();
+
       // Sync student profile from live backend API
       const liveProfile = await api.profile.getProfile();
       if (liveProfile && liveProfile.fullName) {
@@ -319,13 +357,14 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return null;
   }, [studentProfile.studentId]);
 
-  // Load initial active month habits and literacy on startup / user switch
+  // Load initial active month habits, literacy, and dashboard on startup / user switch
   useEffect(() => {
     const ym = todayKey.slice(0, 7);
+    fetchDashboardData();
     fetchHabitsMonth(ym);
     fetchClassLeaderboard();
     fetchLiteracyLogs();
-  }, [todayKey, studentProfile.studentId, fetchHabitsMonth, fetchClassLeaderboard, fetchLiteracyLogs]);
+  }, [todayKey, studentProfile.studentId, fetchDashboardData, fetchHabitsMonth, fetchClassLeaderboard, fetchLiteracyLogs]);
 
   // House Leaderboard State (7 houses, dynamic points and breakdown)
   const [houseLeaderboard, setHouseLeaderboard] = useState<LeaderboardHouse[]>([...LEADERBOARD_HOUSES]);
@@ -734,6 +773,9 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
         getSessions: getCourseSessions,
         getSessionDetail: getCourseSessionDetail,
         getWeeklyPlan: getWeeklyPlanForWeek,
+        dashboardData,
+        isDashboardLoading,
+        fetchDashboardData,
         isLoading,
         isRefreshing,
         isError,

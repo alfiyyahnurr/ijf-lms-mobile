@@ -26,6 +26,7 @@ import {
   ScheduleItem,
   PublishedCardSummary,
   PublishedCard,
+  DashboardData,
 } from '../types';
 
 import {
@@ -512,18 +513,37 @@ export const api = {
   // ==========================================
   dashboard: {
     // GET {{baseUrl}}/api/dashboard
-    getStats: async () => {
-      return requestApi(
+    getDashboard: async (): Promise<DashboardData> => {
+      return requestApi<DashboardData>(
         '/api/dashboard',
         'GET',
         undefined,
         {
-          activeCoursesCount: COURSES_DATA.length,
-          pendingAssignmentsCount: ASSIGNMENTS_DATA.filter((a) => a.status === 'pending').length,
-          upcomingExamsCount: EXAMS_DATA.filter((e) => e.status === 'upcoming').length,
-          totalPoints: STUDENT_PROFILE.points,
+          stats: {
+            activeCourses: 0,
+            pendingAssignments: 0,
+            upcomingExams: 0,
+            sessionsThisWeek: 0,
+          },
+          points: {
+            total: 0,
+            discipline: 0,
+            literacy: 0,
+            habits: 0,
+            houseName: '-',
+            houseRank: 0,
+            houseTotal: 0,
+          },
+          upcomingSessions: [],
+          pendingAssignments: [],
+          recentScores: [],
+          announcements: [],
         }
       );
+    },
+
+    getStats: async () => {
+      return api.dashboard.getDashboard();
     },
 
     // GET {{baseUrl}}/api/academic-year
