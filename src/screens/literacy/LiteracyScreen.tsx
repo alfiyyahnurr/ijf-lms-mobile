@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -91,6 +92,7 @@ export const LiteracyScreen: React.FC = () => {
   // Live status states
   const [isFetching, setIsFetching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [liveStats, setLiveStats] = useState<LiteracyProgressStats | null>(null);
 
   // Entries State (synced with context)
@@ -230,6 +232,23 @@ export const LiteracyScreen: React.FC = () => {
       };
     }, [fetchLiteracyLogs, fetchLiteracyStats, resetForm])
   );
+
+  // Pure Pull-to-Refresh handler for Literacy logs & stats
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const [logs, stats] = await Promise.all([
+        fetchLiteracyLogs(),
+        fetchLiteracyStats(),
+      ]);
+      if (Array.isArray(logs)) setEntries(logs);
+      if (stats) setLiveStats(stats);
+    } catch (err) {
+      console.warn('[Literacy onRefresh Error]', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [fetchLiteracyLogs, fetchLiteracyStats]);
 
   // Reset when user taps tab icon or navigation triggers reset
   useEffect(() => {
@@ -652,6 +671,14 @@ export const LiteracyScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#135E66']}
+              tintColor="#135E66"
+            />
+          }
         >
         {/* ================================================================
             TAB 1: LOG VIEW

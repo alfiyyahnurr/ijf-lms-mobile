@@ -35,6 +35,12 @@ export const LeaderboardScreen: React.FC = () => {
     }
   }, [route.params?.resetKey]);
 
+  useEffect(() => {
+    if (route.params?.initialTab) {
+      setActiveTab(route.params.initialTab);
+    }
+  }, [route.params?.initialTab]);
+
   const {
     studentProfile,
     pointsHistory,

@@ -104,7 +104,7 @@ export async function requestApi<T>(
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
 
     const res = await fetch(fullUrl, {
       method,
@@ -1074,17 +1074,7 @@ export const api = {
       const ym = yearMonth || new Date().toISOString().slice(0, 7);
       return requestApi<any>(
         `/api/student/habits/month?yearMonth=${encodeURIComponent(ym)}`,
-        'GET',
-        undefined,
-        {
-          yearMonth: ym,
-          submittedDays: [],
-          fullDaysCount: 0,
-          daysLoggedCount: 0,
-          points: 0,
-          days: [],
-          categories: [],
-        }
+        'GET'
       );
     },
 
@@ -1102,13 +1092,6 @@ export const api = {
         '/api/student/habits/toggle',
         'POST',
         {
-          recordDate,
-          categoryId: normalizedCat,
-          itemLabel,
-          checked,
-        },
-        {
-          success: true,
           recordDate,
           categoryId: normalizedCat,
           itemLabel,

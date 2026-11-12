@@ -1,14 +1,23 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Platform,
+  RefreshControl,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { FONTS, SHADOWS } from '../../constants/theme';
-import { HABIT_GROUPS_INITIAL } from '../../data/mockData';
-import { HabitGroup } from '../../types';
+import { HabitDayRecord, HabitCategoryItem } from '../../types';
 import AppHeader from '../../components/navigation/AppHeader';
 import PointsToast from '../../components/common/PointsToast';
-import { useStudentData, formatDateKey } from '../../context/StudentDataContext';
+import { useStudentData } from '../../context/StudentDataContext';
+import { api } from '../../services/api';
 
 // SEC_HS Official Design Tokens from Web LMS (lib/sec-hs-theme.ts)
 const SEC_HS = {
@@ -32,17 +41,54 @@ const SEC_HS = {
   redBorder: '#FEE2E2',
 } as const;
 
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
+
+const HABIT_FULL_DAY_THRESHOLD = 5;
+
+// Pick default active date matching Web LMS
+function pickDefaultDate(daysList: HabitDayRecord[], todayStr: string): string {
+  if (daysList.some((d) => d.record_date === todayStr)) return todayStr;
+  const pastOrToday = daysList.filter((d) => d.record_date <= todayStr);
+  return pastOrToday[pastOrToday.length - 1]?.record_date ?? daysList[0]?.record_date ?? todayStr;
+}
+
+// Shift yearMonth string by delta months matching Web LMS
+function shiftYearMonth(ym: string, delta: number): string {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// Month title formatting matching Web LMS
+function monthTitle(ym: string): string {
+  const [y, m] = ym.split('-').map(Number);
+  return `${MONTH_NAMES[m - 1]} ${y}`;
+}
+
+// Sunday-first calendar cells for YYYY-MM month matching Web LMS
+function buildCalendarCells(ym: string): (string | null)[] {
+  const [y, m] = ym.split('-').map(Number);
+  const firstDow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(); // 0=Sun
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const cells: (string | null)[] = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let day = 1; day <= lastDay; day++) {
+    cells.push(`${ym}-${String(day).padStart(2, '0')}`);
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
 
 export const HabitsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const scrollRef = useRef<any>(null);
 
-  // Scroll to top when focused or returned to
+  // Scroll to top when tab or focus changes
   useFocusEffect(
     useCallback(() => {
       scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -65,256 +111,309 @@ export const HabitsScreen: React.FC = () => {
     }
   }, [route.params?.resetKey]);
 
-  // Unified reactive context for student profile, points, leaderboard, and habits
-  const {
-    studentProfile,
-    classHabitsLeaderboard,
-    habitsByDate,
-    toggleHabit: contextToggleHabit,
-    isDateSubmitted,
-    toastList,
-    dismissToast,
-    showToast,
-    fetchHabitsMonth,
-    fetchClassLeaderboard,
-  } = useStudentData();
+  const { toastList, dismissToast, showToast } = useStudentData();
 
-  // Real-time system calendar base
-  const now = useMemo(() => new Date(), []);
-  const REAL_TODAY_YEAR = now.getFullYear();
-  const REAL_TODAY_MONTH = now.getMonth(); // 0-indexed (0=Jan..11=Dec)
-  const REAL_TODAY_DATE = now.getDate();
+  // 100% Web LMS Model States
+  const [tab, setTab] = useState<'daily' | 'recap' | 'leaderboard'>('daily');
+  const [yearMonth, setYearMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [today, setToday] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [track, setTrack] = useState<'smp' | 'sma'>('sma');
+  const [categories, setCategories] = useState<HabitCategoryItem[]>([]);
+  const [days, setDays] = useState<HabitDayRecord[]>([]);
+  const [pointsPerFullDay, setPointsPerFullDay] = useState<number>(2);
+  const [loadingMonth, setLoadingMonth] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [selectedDate, setSelectedDate] = useState<string>(today);
 
-  const [activeTab, setActiveTab] = useState<'daily' | 'recap' | 'leaderboard'>('daily');
-  const [viewYear, setViewYear] = useState<number>(REAL_TODAY_YEAR);
-  const [viewMonth, setViewMonth] = useState<number>(REAL_TODAY_MONTH);
-  const [selectedDate, setSelectedDate] = useState<number>(REAL_TODAY_DATE);
-  const [loadingMonth, setLoadingMonth] = useState<boolean>(false);
-  const [loadingLeaderboard, setLoadingLeaderboard] = useState<boolean>(false);
+  // Debouncing refs for server sync (500ms matching Web LMS)
+  const debounceRef = useRef<any>(null);
+  const pendingRef = useRef<{
+    categoryId: string;
+    itemLabel: string;
+    checked: boolean;
+    recordDate: string;
+  } | null>(null);
 
-  const viewedYearMonth = useMemo(() => {
-    return `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
-  }, [viewYear, viewMonth]);
+  // Leaderboard tab state
+  const [lbRows, setLbRows] = useState<any[] | null>(null);
+  const [lbMyId, setLbMyId] = useState<number | null>(null);
+  const [lbClassName, setLbClassName] = useState<string | null>(null);
+  const [lbLoading, setLbLoading] = useState<boolean>(false);
+  const lbFetchedRef = useRef<boolean>(false);
 
-  // Fetch live month records from backend API when view month changes
+  // Date and edit boundary checks
+  const currentYm = today.slice(0, 7);
+  const canGoNextMonth = shiftYearMonth(yearMonth, 1) <= currentYm;
+
+  const selectedDay = useMemo(() => {
+    return days.find((d) => d.record_date === selectedDate);
+  }, [days, selectedDate]);
+
+  const isPastDay = selectedDate < today;
+  const isFutureDate = selectedDate > today;
+  const canEdit = selectedDate <= today;
+
+  const itemTotal = useMemo(() => {
+    return categories.reduce((sum, c) => sum + c.items.length, 0);
+  }, [categories]);
+
+  const itemChecked = useMemo(() => {
+    return selectedDay?.items.filter((i) => i.is_checked).length ?? 0;
+  }, [selectedDay]);
+
+  const itemPct = itemTotal > 0 ? Math.round((itemChecked / itemTotal) * 100) : 0;
+
+  const dayByDate = useMemo(() => {
+    const map = new Map<string, HabitDayRecord>();
+    for (const d of days) map.set(d.record_date, d);
+    return map;
+  }, [days]);
+
+  const calendarCells = useMemo(() => buildCalendarCells(yearMonth), [yearMonth]);
+
+  // Load habit records for a month matching Web LMS loadMonth
+  const loadMonth = useCallback(
+    async (ym: string, preferDate?: string) => {
+      setLoadingMonth(true);
+      try {
+        const data = await api.habits.getMonth(ym);
+        if (data && Array.isArray(data.days)) {
+          setYearMonth(data.yearMonth || ym);
+          if (data.today) setToday(data.today);
+          if (data.track) setTrack(data.track);
+          if (Array.isArray(data.categories)) setCategories(data.categories);
+          setDays(data.days);
+          if (typeof data.pointsPerFullDay === 'number') {
+            setPointsPerFullDay(data.pointsPerFullDay);
+          }
+
+          const serverToday = data.today || today;
+          const next =
+            preferDate && data.days.some((d: HabitDayRecord) => d.record_date === preferDate)
+              ? preferDate
+              : pickDefaultDate(data.days, serverToday);
+          setSelectedDate(next);
+        }
+      } catch (err: any) {
+        console.warn('[Habits Load Month Error]', err?.message || err);
+        showToast(err?.message || 'Failed to load month', 'error');
+      } finally {
+        setLoadingMonth(false);
+      }
+    },
+    [today, showToast]
+  );
+
+  // Initial mount load
   useEffect(() => {
-    let isMounted = true;
-    setLoadingMonth(true);
-    fetchHabitsMonth(viewedYearMonth).finally(() => {
-      if (isMounted) setLoadingMonth(false);
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, [viewedYearMonth, fetchHabitsMonth]);
-
-  // Fetch live class habits leaderboard from API when switching to leaderboard tab
-  useEffect(() => {
-    if (activeTab === 'leaderboard') {
-      let isMounted = true;
-      setLoadingLeaderboard(true);
-      fetchClassLeaderboard().finally(() => {
-        if (isMounted) setLoadingLeaderboard(false);
-      });
-      return () => {
-        isMounted = false;
-      };
-    }
-  }, [activeTab, fetchClassLeaderboard]);
-
-  // Auto-reset calendar to latest real-time date (current year, month, and today)
-  const resetCalendarToLatest = useCallback(() => {
-    const today = new Date();
-    setViewYear(today.getFullYear());
-    setViewMonth(today.getMonth());
-    setSelectedDate(today.getDate());
+    loadMonth(yearMonth);
   }, []);
 
-  const handleTabChange = (newTab: 'daily' | 'recap' | 'leaderboard') => {
-    setActiveTab(newTab);
-    resetCalendarToLatest();
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      resetCalendarToLatest();
-    }, [resetCalendarToLatest])
-  );
-
-  // Selected date key for current view: YYYY-MM-DD
-  const selectedDateKey = useMemo(
-    () => formatDateKey(viewYear, viewMonth, selectedDate),
-    [viewYear, viewMonth, selectedDate]
-  );
-
-  const todayKey = useMemo(
-    () => formatDateKey(REAL_TODAY_YEAR, REAL_TODAY_MONTH, REAL_TODAY_DATE),
-    [REAL_TODAY_YEAR, REAL_TODAY_MONTH, REAL_TODAY_DATE]
-  );
-
-  const canEdit = selectedDateKey <= todayKey;
-  const isPastDay = selectedDateKey < todayKey;
-  const isFutureDate = selectedDateKey > todayKey;
-
-  // Current active date's habit groups from unified context
-  const currentHabitGroups: HabitGroup[] = useMemo(() => {
-    return (
-      habitsByDate[selectedDateKey] ||
-      HABIT_GROUPS_INITIAL.map((g) => ({
-        ...g,
-        items: g.items.map((i) => ({ ...i, checked: false })),
-      }))
-    );
-  }, [habitsByDate, selectedDateKey]);
-
-  // Dynamic Calendar Month Weeks Computation (Sunday = 0 .. Saturday = 6)
-  const monthWeeks = useMemo(() => {
-    const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay();
-    const totalDays = new Date(viewYear, viewMonth + 1, 0).getDate();
-
-    const weeks: (number | null)[][] = [];
-    let currentWeek: (number | null)[] = [];
-
-    for (let i = 0; i < firstDayIndex; i++) {
-      currentWeek.push(null);
-    }
-    for (let d = 1; d <= totalDays; d++) {
-      currentWeek.push(d);
-      if (currentWeek.length === 7) {
-        weeks.push(currentWeek);
-        currentWeek = [];
+  // Fetch class habits leaderboard
+  const fetchLeaderboard = useCallback(async () => {
+    setLbLoading(true);
+    try {
+      const data = await api.leaderboard.getClass();
+      if (data && Array.isArray(data.rows)) {
+        setLbRows(data.rows);
+        setLbMyId(Number(data.myStudentId) || null);
+        setLbClassName(data.className ?? null);
       }
+    } catch (err: any) {
+      console.warn('[Leaderboard Load Error]', err?.message || err);
+    } finally {
+      setLbLoading(false);
     }
-    if (currentWeek.length > 0) {
-      while (currentWeek.length < 7) {
-        currentWeek.push(null);
-      }
-      weeks.push(currentWeek);
-    }
-    return weeks;
-  }, [viewYear, viewMonth]);
+  }, []);
 
-  // Month navigation guards: cannot advance beyond current real-time month
-  const isCurrentMonthOrFuture = useMemo(() => {
-    return (
-      viewYear > REAL_TODAY_YEAR ||
-      (viewYear === REAL_TODAY_YEAR && viewMonth >= REAL_TODAY_MONTH)
+  // Load leaderboard when tab switches
+  useEffect(() => {
+    if (tab !== 'leaderboard' || lbFetchedRef.current) return;
+    lbFetchedRef.current = true;
+    fetchLeaderboard();
+  }, [tab, fetchLeaderboard]);
+
+  // Sorted leaderboard rows matching Web LMS
+  const sortedLb = useMemo(() => {
+    if (!lbRows) return [];
+    return [...lbRows].sort(
+      (a, b) =>
+        (Number(b.habits_pts) || 0) - (Number(a.habits_pts) || 0) ||
+        (Number(b.total_points) || 0) - (Number(a.total_points) || 0)
     );
-  }, [viewYear, viewMonth, REAL_TODAY_YEAR, REAL_TODAY_MONTH]);
+  }, [lbRows]);
 
-  const handlePrevMonth = () => {
-    const prevYear = viewMonth === 0 ? viewYear - 1 : viewYear;
-    const prevMonth = viewMonth === 0 ? 11 : viewMonth - 1;
-    setViewYear(prevYear);
-    setViewMonth(prevMonth);
-
-    // Automatically pick the last day of the past month (matching Web LMS pickDefaultDate)
-    const lastDay = new Date(prevYear, prevMonth + 1, 0).getDate();
-    setSelectedDate(lastDay);
-  };
-
-  const handleNextMonth = () => {
-    if (isCurrentMonthOrFuture) return;
-    const nextYear = viewMonth === 11 ? viewYear + 1 : viewYear;
-    const nextMonth = viewMonth === 11 ? 0 : viewMonth + 1;
-    setViewYear(nextYear);
-    setViewMonth(nextMonth);
-
-    // If returning to current month, pick today; otherwise pick last day of that month
-    if (nextYear === REAL_TODAY_YEAR && nextMonth === REAL_TODAY_MONTH) {
-      setSelectedDate(REAL_TODAY_DATE);
-    } else {
-      const lastDay = new Date(nextYear, nextMonth + 1, 0).getDate();
-      setSelectedDate(lastDay);
+  // Pure Pull-to-Refresh handler
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        loadMonth(yearMonth, selectedDate),
+        tab === 'leaderboard' ? fetchLeaderboard() : Promise.resolve(),
+      ]);
+    } finally {
+      setRefreshing(false);
     }
-  };
+  }, [yearMonth, selectedDate, tab, loadMonth, fetchLeaderboard]);
 
-  // Compute Daily Checklist Stats
-  const totalItems = useMemo(
-    () => currentHabitGroups.reduce((acc, g) => acc + g.items.length, 0),
-    [currentHabitGroups]
-  );
-  const completedItems = useMemo(
-    () => currentHabitGroups.reduce((acc, g) => acc + g.items.filter((i) => i.checked).length, 0),
-    [currentHabitGroups]
-  );
-  const progressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-  const activeGroupsCount = useMemo(
-    () => currentHabitGroups.filter((g) => g.items.some((i) => i.checked)).length,
-    [currentHabitGroups]
-  );
+  // Direct isItemChecked helper matching Web LMS
+  function isItemChecked(day: HabitDayRecord | undefined, categoryId: string, itemLabel: string): boolean {
+    return Boolean(
+      day?.items.find(
+        (i) => i.category_id === categoryId && i.item_label === itemLabel && i.is_checked
+      )
+    );
+  }
 
-  // Toggle habit with validation for future dates
-  const handleToggleHabit = (groupId: string, itemId: string) => {
+  // Check if category has any completed items for active day matching Web LMS
+  function catDoneSelected(categoryId: string): boolean {
+    return Boolean(
+      selectedDay?.items.some((i) => i.category_id === categoryId && i.is_checked)
+    );
+  }
+
+  // Optimistic local toggle update matching Web LMS applyLocalToggle
+  function applyLocalToggle(
+    date: string,
+    categoryId: string,
+    itemLabel: string,
+    checked: boolean
+  ): HabitDayRecord[] {
+    return days.map((day) => {
+      if (day.record_date !== date) return day;
+      const items = [...day.items];
+      const idx = items.findIndex(
+        (i) => i.category_id === categoryId && i.item_label === itemLabel
+      );
+      if (idx >= 0) {
+        items[idx] = { ...items[idx], is_checked: checked };
+      } else {
+        items.push({
+          id: -Date.now(),
+          category_id: categoryId,
+          item_label: itemLabel,
+          is_checked: checked,
+        });
+      }
+      const doneCats = new Set(
+        items.filter((i) => i.is_checked).map((i) => i.category_id)
+      );
+      const categories_done = doneCats.size;
+      return {
+        ...day,
+        items,
+        categories_done,
+        points: categories_done >= HABIT_FULL_DAY_THRESHOLD ? pointsPerFullDay : 0,
+      };
+    });
+  }
+
+  // Handle item toggle with optimistic update and 500ms debounce matching Web LMS
+  function handleToggle(categoryId: string, itemLabel: string) {
     if (!canEdit) {
-      showToast('Cannot record habits for future dates. Please select today or a past date.');
+      showToast('Cannot edit future dates', 'error');
       return;
     }
-    contextToggleHabit(selectedDateKey, groupId, itemId);
-  };
+    const currently = isItemChecked(selectedDay, categoryId, itemLabel);
+    const next = !currently;
+    const date = selectedDate;
 
-  // Compute Recap Stats Dynamically across days of viewed month
-  const isViewingCurrentMonth = viewYear === REAL_TODAY_YEAR && viewMonth === REAL_TODAY_MONTH;
-  const daysInViewMonth = useMemo(() => new Date(viewYear, viewMonth + 1, 0).getDate(), [viewYear, viewMonth]);
-  const totalElapsedDays = isViewingCurrentMonth ? REAL_TODAY_DATE : daysInViewMonth;
+    setDays(applyLocalToggle(date, categoryId, itemLabel, next));
+    pendingRef.current = { categoryId, itemLabel, checked: next, recordDate: date };
 
-  // Recap calculations matching official Web LMS rules
-  const recapStats = useMemo(() => {
-    let fullDaysCount = 0;
-    let daysLoggedCount = 0;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      const pending = pendingRef.current;
+      if (!pending) return;
+      try {
+        const data = await api.habits.toggleHabit(
+          pending.recordDate,
+          pending.categoryId,
+          pending.itemLabel,
+          pending.checked
+        );
 
-    const groupCompletedDays: Record<string, number> = {
-      'rise-early': 0,
-      worship: 0,
-      exercise: 0,
-      'eat-well': 0,
-      'love-learning': 0,
-      community: 0,
-      'sleep-early': 0,
-    };
+        setDays((prev) =>
+          prev.map((d) => {
+            if (d.record_date !== pending.recordDate) return d;
+            const items = [...d.items];
+            const idx = items.findIndex(
+              (i) => i.category_id === data.categoryId && i.item_label === data.itemLabel
+            );
+            if (idx >= 0) {
+              items[idx] = { ...items[idx], is_checked: data.isChecked };
+            } else {
+              items.push({
+                id: Date.now(),
+                category_id: data.categoryId,
+                item_label: data.itemLabel,
+                is_checked: data.isChecked,
+              });
+            }
+            return {
+              ...d,
+              id: data.recordId,
+              items,
+              categories_done: data.categoriesDone,
+              points: data.points,
+            };
+          })
+        );
 
-    for (let d = 1; d <= totalElapsedDays; d++) {
-      const dKey = formatDateKey(viewYear, viewMonth, d);
-      const groups = habitsByDate[dKey];
-      if (!groups) continue;
-
-      const anyCheckedToday = groups.some((g) => g.items.some((i) => i.checked));
-      if (anyCheckedToday) {
-        daysLoggedCount++;
-      }
-
-      let categoriesActiveToday = 0;
-      for (const g of groups) {
-        const hasCheckInGroup = g.items.some((i) => i.checked);
-        if (hasCheckInGroup) {
-          categoriesActiveToday++;
-          if (groupCompletedDays[g.id] !== undefined) {
-            groupCompletedDays[g.id]++;
-          }
+        if (
+          data.categoriesDone >= HABIT_FULL_DAY_THRESHOLD &&
+          data.points > 0 &&
+          pending.checked
+        ) {
+          showToast(`+${data.points} pts · Habit full day`);
         }
+      } catch (err: any) {
+        showToast(err?.message || 'Failed to save', 'error');
+        void loadMonth(yearMonth, selectedDate);
       }
+    }, 500);
+  }
 
-      // Rule: Full day = >= 5 categories checked (2 pts each)
-      if (categoriesActiveToday >= 5) {
-        fullDaysCount++;
-      }
-    }
-
-    const pointsEarned = fullDaysCount * 2;
-
-    return {
-      fullDays: fullDaysCount,
-      daysLogged: daysLoggedCount,
-      points: pointsEarned,
-      groupCompletedDays,
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [habitsByDate, viewYear, viewMonth, totalElapsedDays]);
+  }, []);
 
-  const dateSubLabel = isViewingCurrentMonth && selectedDate === REAL_TODAY_DATE
-    ? 'today'
-    : selectedDateKey;
+  // Recap statistics computation matching Web LMS
+  const pastOrTodayDays = useMemo(() => {
+    return days.filter((d) => d.record_date <= today);
+  }, [days, today]);
 
-  const trackLabel = 'Senior';
+  const fullDays = useMemo(() => {
+    return pastOrTodayDays.filter((d) => d.categories_done >= HABIT_FULL_DAY_THRESHOLD).length;
+  }, [pastOrTodayDays]);
+
+  const monthPoints = useMemo(() => {
+    return pastOrTodayDays.reduce((s, d) => s + (d.points || 0), 0);
+  }, [pastOrTodayDays]);
+
+  const daysWithAny = useMemo(() => {
+    return pastOrTodayDays.filter((d) => d.items.some((i) => i.is_checked)).length;
+  }, [pastOrTodayDays]);
+
+  const categoryCounts = useMemo(() => {
+    return categories.map((cat) => ({
+      id: cat.id,
+      label: cat.label,
+      days: pastOrTodayDays.filter((d) =>
+        d.items.some((i) => i.category_id === cat.id && i.is_checked)
+      ).length,
+    }));
+  }, [categories, pastOrTodayDays]);
+
+  const totalElapsedDays = pastOrTodayDays.length;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -334,172 +433,136 @@ export const HabitsScreen: React.FC = () => {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[SEC_HS.navy]}
+            tintColor={SEC_HS.navy}
+          />
+        }
       >
-        {/* Page Header Title matching Web LMS (h1 fontSize: 18, fontWeight: 700, color: SEC_HS.navy) */}
+        {/* Header Block */}
         <View style={styles.headerBlock}>
           <Text style={styles.pageTitle}>Daily habit checklist</Text>
         </View>
 
-        {/* Segmented Tabs (3 Tab: Daily, Recap, Leaderboard) */}
+        {/* Segmented Tabs (Daily, Recap, Leaderboard) matching Web LMS */}
         <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'daily' && styles.tabBtnActive]}
-            onPress={() => handleTabChange('daily')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabBtnText, activeTab === 'daily' && styles.tabBtnTextActive]}>
-              Daily
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'recap' && styles.tabBtnActive]}
-            onPress={() => handleTabChange('recap')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabBtnText, activeTab === 'recap' && styles.tabBtnTextActive]}>
-              Recap
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'leaderboard' && styles.tabBtnActive]}
-            onPress={() => handleTabChange('leaderboard')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabBtnText, activeTab === 'leaderboard' && styles.tabBtnTextActive]}>
-              Leaderboard
-            </Text>
-          </TouchableOpacity>
+          {(
+            [
+              { id: 'daily' as const, label: 'Daily' },
+              { id: 'recap' as const, label: 'Recap' },
+              { id: 'leaderboard' as const, label: 'Leaderboard' },
+            ] as const
+          ).map((t) => {
+            const active = tab === t.id;
+            return (
+              <TouchableOpacity
+                key={t.id}
+                style={[styles.tabBtn, active && styles.tabBtnActive]}
+                onPress={() => setTab(t.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabBtnText, active && styles.tabBtnTextActive]}>
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* ==============================================================
-            TAB 1: DAILY
-            ============================================================== */}
-        {activeTab === 'daily' && (
+        {/* ========================================================= */}
+        {/* TAB 1: DAILY CHECKLIST & CALENDAR                         */}
+        {/* ========================================================= */}
+        {tab === 'daily' && (
           <View style={styles.tabContentWrap}>
-            {/* 1. Monthly Calendar Card */}
+            {/* Monthly Calendar Card */}
             <View style={styles.calendarCard}>
-              {/* Month Header Navigation */}
               <View style={styles.monthNavRow}>
                 <TouchableOpacity
-                  style={styles.navArrowBtn}
-                  onPress={handlePrevMonth}
+                  style={[styles.navArrowBtn, loadingMonth && styles.navArrowBtnDisabled]}
+                  disabled={loadingMonth}
+                  onPress={() => loadMonth(shiftYearMonth(yearMonth, -1))}
                   activeOpacity={0.7}
+                  accessibilityLabel="Previous month"
                 >
-                  <Ionicons name="chevron-back" size={16} color={SEC_HS.muted} />
+                  <Ionicons name="chevron-back" size={16} color={SEC_HS.navy} />
                 </TouchableOpacity>
 
-                <Text style={styles.monthTitleText}>
-                  {MONTH_NAMES[viewMonth]} {viewYear}
-                </Text>
+                <Text style={styles.monthTitleText}>{monthTitle(yearMonth)}</Text>
 
                 <TouchableOpacity
-                  style={[styles.navArrowBtn, isCurrentMonthOrFuture && styles.navArrowBtnDisabled]}
-                  onPress={handleNextMonth}
+                  style={[
+                    styles.navArrowBtn,
+                    (loadingMonth || !canGoNextMonth) && styles.navArrowBtnDisabled,
+                  ]}
+                  disabled={loadingMonth || !canGoNextMonth}
+                  onPress={() => loadMonth(shiftYearMonth(yearMonth, 1))}
                   activeOpacity={0.7}
-                  disabled={isCurrentMonthOrFuture}
+                  accessibilityLabel="Next month"
                 >
-                  <Ionicons
-                    name="chevron-forward"
-                    size={16}
-                    color={isCurrentMonthOrFuture ? 'rgba(28,25,23,0.28)' : SEC_HS.muted}
-                  />
+                  <Ionicons name="chevron-forward" size={16} color={SEC_HS.navy} />
                 </TouchableOpacity>
               </View>
 
-              {/* Weekday Labels (Sun..Sat) */}
+              {/* Day of week headers */}
               <View style={styles.weekdaysRow}>
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+                {DOW.map((d) => (
                   <Text key={d} style={styles.weekdayText}>
                     {d}
                   </Text>
                 ))}
               </View>
 
-              {/* Dynamic Calendar Days Grid */}
-              <View style={styles.daysGrid}>
-                {monthWeeks.map((week, wIdx) => (
-                  <View key={`week-${wIdx}`} style={styles.weekRow}>
-                    {week.map((dateNum, dIdx) => {
-                      if (dateNum === null) {
-                        return <View key={`empty-${dIdx}`} style={styles.dayCellWrapper} />;
-                      }
+              {/* 7-column calendar cells grid matching Web LMS */}
+              <View style={styles.calendarCellsGrid}>
+                {calendarCells.map((dateStr, idx) => {
+                  if (!dateStr) {
+                    return <View key={`pad-${idx}`} style={styles.dayCellWrapper} />;
+                  }
+                  const day = dayByDate.get(dateStr);
+                  const dayNum = Number(dateStr.slice(-2));
+                  const isSelected = dateStr === selectedDate;
+                  const isFuture = dateStr > today;
+                  const hasChecks = day?.items.some((i) => i.is_checked) ?? false;
+                  const isFull = (day?.categories_done ?? 0) >= HABIT_FULL_DAY_THRESHOLD;
+                  const isPastEmpty = dateStr < today && !hasChecks;
 
-                      const isSelected = dateNum === selectedDate;
-                      const isFuture = isViewingCurrentMonth
-                        ? dateNum > REAL_TODAY_DATE
-                        : (viewYear > REAL_TODAY_YEAR || (viewYear === REAL_TODAY_YEAR && viewMonth > REAL_TODAY_MONTH));
-                      const dKey = formatDateKey(viewYear, viewMonth, dateNum);
-                      const hasSubmission = isDateSubmitted(dKey);
-
-                      // State 1: Future locked
-                      if (isFuture) {
-                        return (
-                          <View key={`date-${dateNum}`} style={styles.dayCellWrapper}>
-                            <View style={styles.dayCellFuture}>
-                              <Text style={styles.dayTextFuture}>{dateNum}</Text>
-                              <View style={styles.dotPlaceholder} />
-                            </View>
-                          </View>
-                        );
-                      }
-
-                      // State 2: Selected date
-                      if (isSelected) {
-                        return (
-                          <TouchableOpacity
-                            key={`date-${dateNum}`}
-                            style={styles.dayCellWrapper}
-                            onPress={() => setSelectedDate(dateNum)}
-                            activeOpacity={0.8}
-                          >
-                            <View style={styles.dayCellSelected}>
-                              <Text style={styles.dayTextSelected}>{dateNum}</Text>
-                              {hasSubmission ? (
-                                <View style={styles.submissionDot} />
-                              ) : (
-                                <View style={styles.dotPlaceholder} />
-                              )}
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      }
-
-                      // State 3: Has submission
-                      if (hasSubmission) {
-                        return (
-                          <TouchableOpacity
-                            key={`date-${dateNum}`}
-                            style={styles.dayCellWrapper}
-                            onPress={() => setSelectedDate(dateNum)}
-                            activeOpacity={0.8}
-                          >
-                            <View style={styles.dayCellSubmission}>
-                              <Text style={styles.dayTextSubmission}>{dateNum}</Text>
-                              <View style={styles.submissionDot} />
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      }
-
-                      // State 4: Past not filled
-                      return (
-                        <TouchableOpacity
-                          key={`date-${dateNum}`}
-                          style={styles.dayCellWrapper}
-                          onPress={() => setSelectedDate(dateNum)}
-                          activeOpacity={0.8}
+                  return (
+                    <View key={dateStr} style={styles.dayCellWrapper}>
+                      <TouchableOpacity
+                        style={[
+                          styles.dayCellBase,
+                          isSelected && styles.dayCellSelected,
+                          !isSelected && (isFull || hasChecks) && styles.dayCellSubmission,
+                          !isSelected && !isFull && !hasChecks && isPastEmpty && styles.dayCellPast,
+                          !isSelected && isFuture && styles.dayCellFuture,
+                        ]}
+                        disabled={isFuture || loadingMonth}
+                        onPress={() => setSelectedDate(dateStr)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.dayTextBase,
+                            isSelected && styles.dayTextSelected,
+                            !isSelected && (isFull || hasChecks) && styles.dayTextSubmission,
+                            !isSelected && !isFull && !hasChecks && isPastEmpty && styles.dayTextPast,
+                            !isSelected && isFuture && styles.dayTextFuture,
+                          ]}
                         >
-                          <View style={styles.dayCellPast}>
-                            <Text style={styles.dayTextPast}>{dateNum}</Text>
-                            <View style={styles.dotPlaceholder} />
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                ))}
+                          {dayNum}
+                        </Text>
+                        {(isFull || hasChecks) && !isFuture ? (
+                          <View style={styles.submissionDot} />
+                        ) : (
+                          <View style={styles.dotPlaceholder} />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
               </View>
 
               {/* Calendar Legend matching Web LMS */}
@@ -542,118 +605,121 @@ export const HabitsScreen: React.FC = () => {
               </View>
             )}
 
-            {/* 2. Checklist Progress Summary */}
+            {/* Checklist Progress Summary matching Web LMS */}
             <View style={styles.checklistProgressContainer}>
               <Text style={styles.checklistProgressLabel}>Checklist progress</Text>
               <Text style={styles.checklistProgressBigText}>
-                {completedItems}/{totalItems} ({progressPercent}%)
+                {itemChecked}/{itemTotal} ({itemPct}%)
               </Text>
               <Text style={styles.checklistProgressAutoSaveText}>
-                Checks save automatically. You can still edit past days.{isPastDay ? ' You are editing a past day.' : ''}
+                Checks save automatically. You can still edit past days.
+                {isPastDay ? ' You are editing a past day.' : ''}
               </Text>
               <Text style={styles.checklistProgressSubMeta}>
-                {activeGroupsCount}/7 habit groups · {trackLabel} track · {dateSubLabel}
+                {selectedDay?.categories_done ?? 0}/7 habit groups · {track === 'sma' ? 'Senior' : 'Middle'} track ·{' '}
+                {selectedDate === today ? 'today' : selectedDate}
               </Text>
             </View>
 
-            {/* 3. 7 Habit Group Cards (1 Column on Mobile View) */}
-            <View
-              style={[
-                styles.habitListWrap,
-                !canEdit && styles.habitListDisabled,
-              ]}
-              pointerEvents={canEdit ? 'auto' : 'none'}
-            >
-              {currentHabitGroups.map((group) => {
-                const isGroupActive = group.items.some((i) => i.checked);
-                return (
-                  <View
-                    key={group.id}
-                    style={[styles.habitCard, isGroupActive && styles.habitCardActive]}
-                  >
-                    <Text
-                      style={[
-                        styles.habitCardTitle,
-                        isGroupActive && styles.habitCardTitleCompleted,
-                      ]}
+            {/* Checklist Category Cards — 100% Web LMS Categories & Items */}
+            {loadingMonth && categories.length === 0 ? (
+              <View style={styles.loadingWrap}>
+                <ActivityIndicator size="small" color={SEC_HS.navy} />
+                <Text style={styles.loadingText}>Loading habits...</Text>
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.habitListWrap,
+                  !canEdit && styles.habitListDisabled,
+                ]}
+                pointerEvents={canEdit ? 'auto' : 'none'}
+              >
+                {categories.map((cat) => {
+                  const done = catDoneSelected(cat.id);
+                  return (
+                    <View
+                      key={cat.id}
+                      style={[styles.habitCard, done && styles.habitCardActive]}
                     >
-                      {group.title}{isGroupActive ? ' ✓' : ''}
-                    </Text>
-                    <View style={styles.habitCardItemsCol}>
-                      {group.items.map((item) => {
-                        const isChecked = item.checked;
-                        return (
-                          <TouchableOpacity
-                            key={item.id}
-                            style={[
-                              styles.habitItemRow,
-                              isChecked && styles.habitItemRowChecked,
-                            ]}
-                            onPress={() => handleToggleHabit(group.id, item.id)}
-                            activeOpacity={0.7}
-                            disabled={!canEdit}
-                          >
-                            <Text
+                      <Text
+                        style={[
+                          styles.habitCardTitle,
+                          done && styles.habitCardTitleCompleted,
+                        ]}
+                      >
+                        {cat.label}
+                        {done ? ' ✓' : ''}
+                      </Text>
+                      <View style={styles.habitCardItemsCol}>
+                        {cat.items.map((item) => {
+                          const on = isItemChecked(selectedDay, cat.id, item);
+                          return (
+                            <TouchableOpacity
+                              key={item}
                               style={[
-                                styles.habitItemLabel,
-                                isChecked && styles.habitItemLabelChecked,
+                                styles.habitItemRow,
+                                on && styles.habitItemRowChecked,
                               ]}
+                              onPress={() => handleToggle(cat.id, item)}
+                              activeOpacity={0.7}
+                              disabled={!canEdit}
                             >
-                              {item.text}
-                            </Text>
-                            <View
-                              style={[
-                                styles.circularCheck,
-                                isChecked && styles.circularCheckActive,
-                              ]}
-                            >
-                              {isChecked && (
-                                <Ionicons name="checkmark" size={13} color="#FFFFFF" />
-                              )}
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
+                              <Text
+                                style={[
+                                  styles.habitItemLabel,
+                                  on && styles.habitItemLabelChecked,
+                                ]}
+                              >
+                                {item}
+                              </Text>
+                              <View
+                                style={[
+                                  styles.circularCheck,
+                                  on && styles.circularCheckActive,
+                                ]}
+                              >
+                                {on && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
                     </View>
-                  </View>
-                );
-              })}
-            </View>
+                  );
+                })}
+              </View>
+            )}
 
-            {/* 4. Footer Disclaimer */}
+            {/* Footer Disclaimer */}
             <Text style={styles.footerDisclaimer}>
-              Based on G7KAIH (Gerakan 7 Kebiasaan Anak Indonesia Hebat). Full-day points when ≥5 habit groups are checked.
+              Self-reported daily checklist is an honor system. Points are verified periodically by your class teacher.
             </Text>
           </View>
         )}
 
-        {/* ==============================================================
-            TAB 2: RECAP
-            ============================================================== */}
-        {activeTab === 'recap' && (
+        {/* ========================================================= */}
+        {/* TAB 2: RECAP VIEW                                         */}
+        {/* ========================================================= */}
+        {tab === 'recap' && (
           <View style={styles.tabContentWrap}>
-            {/* Card 1: Month summary */}
+            {/* Card 1: Month Summary (3 Tiles) */}
             <View style={styles.recapSummaryCard}>
               <Text style={styles.recapSummaryTitle}>
-                {MONTH_NAMES[viewMonth]} {viewYear} summary
+                Month summary · {monthTitle(yearMonth)}
               </Text>
               <View style={styles.recapTilesRow}>
-                {/* Tile 1: Full days */}
                 <View style={styles.recapTile}>
-                  <Text style={styles.recapTileNumber}>{recapStats.fullDays}</Text>
+                  <Text style={styles.recapTileNumber}>{fullDays}</Text>
                   <Text style={styles.recapTileLabel}>Full days</Text>
                 </View>
-
-                {/* Tile 2: Days logged */}
                 <View style={styles.recapTile}>
-                  <Text style={styles.recapTileNumber}>{recapStats.daysLogged}</Text>
-                  <Text style={styles.recapTileLabel}>Days logged</Text>
+                  <Text style={styles.recapTileNumber}>{monthPoints}</Text>
+                  <Text style={styles.recapTileLabel}>Month pts</Text>
                 </View>
-
-                {/* Tile 3: Points */}
                 <View style={styles.recapTile}>
-                  <Text style={styles.recapTileNumber}>{recapStats.points}</Text>
-                  <Text style={styles.recapTileLabel}>Points</Text>
+                  <Text style={styles.recapTileNumber}>{daysWithAny}</Text>
+                  <Text style={styles.recapTileLabel}>Days logged</Text>
                 </View>
               </View>
 
@@ -662,19 +728,19 @@ export const HabitsScreen: React.FC = () => {
               </Text>
             </View>
 
-            {/* Card 2: Days per habit group */}
+            {/* Card 2: Days per habit group matching Web LMS */}
             <View style={styles.recapGroupsCard}>
               <Text style={styles.recapGroupsTitle}>Days per habit group</Text>
 
               <View style={styles.recapGroupsList}>
-                {HABIT_GROUPS_INITIAL.map((group) => {
-                  const completedDays = recapStats.groupCompletedDays[group.id] || 0;
+                {categoryCounts.map((cat) => {
+                  const completedDays = cat.days;
                   const progressRatio = totalElapsedDays > 0 ? Math.min(1, completedDays / totalElapsedDays) : 0;
 
                   return (
-                    <View key={group.id} style={styles.recapGroupRow}>
+                    <View key={cat.id} style={styles.recapGroupRow}>
                       <View style={styles.recapGroupHeader}>
-                        <Text style={styles.recapGroupName}>{group.title}</Text>
+                        <Text style={styles.recapGroupName}>{cat.label}</Text>
                         <Text style={styles.recapGroupScore}>
                           {completedDays}/{totalElapsedDays}
                         </Text>
@@ -697,26 +763,26 @@ export const HabitsScreen: React.FC = () => {
             <View style={styles.monthNavButtonsRow}>
               <TouchableOpacity
                 style={styles.monthNavOutlineBtn}
-                onPress={handlePrevMonth}
+                onPress={() => loadMonth(shiftYearMonth(yearMonth, -1))}
                 activeOpacity={0.7}
               >
                 <Ionicons name="chevron-back" size={15} color={SEC_HS.navy} />
-                <Text style={styles.monthNavOutlineBtnText}>Prev month</Text>
+                <Text style={styles.monthNavOutlineBtnText}>Previous month</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
                   styles.monthNavOutlineBtn,
-                  isCurrentMonthOrFuture && styles.monthNavOutlineBtnDisabled,
+                  !canGoNextMonth && styles.monthNavOutlineBtnDisabled,
                 ]}
-                onPress={handleNextMonth}
+                onPress={() => loadMonth(shiftYearMonth(yearMonth, 1))}
+                disabled={!canGoNextMonth}
                 activeOpacity={0.7}
-                disabled={isCurrentMonthOrFuture}
               >
                 <Text
                   style={[
                     styles.monthNavOutlineBtnText,
-                    isCurrentMonthOrFuture && styles.monthNavOutlineBtnTextDisabled,
+                    !canGoNextMonth && styles.monthNavOutlineBtnTextDisabled,
                   ]}
                 >
                   Next month
@@ -724,74 +790,67 @@ export const HabitsScreen: React.FC = () => {
                 <Ionicons
                   name="chevron-forward"
                   size={15}
-                  color={isCurrentMonthOrFuture ? 'rgba(28,25,23,0.35)' : SEC_HS.navy}
+                  color={!canGoNextMonth ? SEC_HS.muted : SEC_HS.navy}
                 />
               </TouchableOpacity>
             </View>
           </View>
         )}
 
-        {/* ==============================================================
-            TAB 3: LEADERBOARD
-            ============================================================== */}
-        {activeTab === 'leaderboard' && (
+        {/* ========================================================= */}
+        {/* TAB 3: LEADERBOARD VIEW                                   */}
+        {/* ========================================================= */}
+        {tab === 'leaderboard' && (
           <View style={styles.tabContentWrap}>
             <View style={styles.classLeaderboardCard}>
-              {/* Header Row: Title & Link to Full Leaderboard */}
               <View style={styles.classLeaderboardHeader}>
                 <View>
-                  <Text style={styles.classLeaderboardTitle}>Class habits points</Text>
+                  <Text style={styles.classLeaderboardTitle}>Class Habits Leaderboard</Text>
                   <Text style={styles.classLeaderboardSubtitle}>
-                    {studentProfile.className || 'S4 Oxford'}
+                    {lbClassName || 'All students in your class'}
                   </Text>
                 </View>
-
                 <TouchableOpacity
-                  onPress={() => navigation.navigate('BoardTab')}
+                  onPress={() => navigation.navigate('BoardTab' as never, { initialTab: 'class' } as never)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.fullLeaderboardLinkText}>Full leaderboard →</Text>
+                  <Text style={styles.fullLeaderboardLinkText}>Full Leaderboard →</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Class Ranking List matching Web LMS */}
-              {loadingLeaderboard ? (
-                <Text style={styles.emptyStateText}>Loading…</Text>
-              ) : classHabitsLeaderboard.length === 0 ? (
-                <Text style={styles.emptyStateText}>No class ranking yet.</Text>
+              {lbLoading ? (
+                <View style={styles.loadingWrap}>
+                  <ActivityIndicator size="small" color={SEC_HS.navy} />
+                  <Text style={styles.loadingText}>Loading class ranking...</Text>
+                </View>
+              ) : sortedLb.length === 0 ? (
+                <Text style={styles.emptyStateText}>No habit points recorded yet this term.</Text>
               ) : (
                 <View style={styles.rankList}>
-                  {classHabitsLeaderboard.slice(0, 15).map((student, idx) => {
-                    const hPoints = student.habitsPts ?? 0; // always use live API value (matches Web LMS)
-                    const isMe = student.isCurrent;
+                  {sortedLb.map((student, idx) => {
+                    const isCurrent = lbMyId ? student.student_id === lbMyId : false;
                     return (
                       <View
-                        key={student.name || idx}
-                        style={[styles.rankRow, isMe && styles.rankRowCurrentUser]}
+                        key={student.student_id || idx}
+                        style={[styles.rankRow, isCurrent && styles.rankRowCurrentUser]}
                       >
-                        <Text
-                          style={[
-                            styles.rankNumberText,
-                            isMe && styles.rankNumberTextCurrentUser,
-                          ]}
-                        >
-                          {idx + 1}
+                        <Text style={[styles.rankNumberText, isCurrent && styles.rankNumberTextCurrentUser]}>
+                          #{idx + 1}
                         </Text>
                         <Text
                           style={[
                             styles.studentNameText,
-                            isMe && styles.studentNameTextCurrentUser,
+                            isCurrent && styles.studentNameTextCurrentUser,
                           ]}
                           numberOfLines={1}
                         >
-                          {student.name}{isMe ? ' (you)' : ''}
+                          {student.full_name}
+                          {isCurrent ? ' (You)' : ''}
                         </Text>
-                        <Text style={styles.pointsTextWrap}>
+                        <View style={styles.pointsTextWrap}>
                           <Text style={styles.pointsLetterH}>H </Text>
-                          <Text style={styles.pointsNumberConsolas}>
-                            {hPoints}
-                          </Text>
-                        </Text>
+                          <Text style={styles.pointsNumberConsolas}>{student.habits_pts || 0} pts</Text>
+                        </View>
                       </View>
                     );
                   })}
@@ -816,7 +875,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 110, // clearance for bottom nav bar (~76-85px) + breathing room
+    paddingBottom: 110,
     maxWidth: 680,
     alignSelf: 'center',
     width: '100%',
@@ -838,7 +897,7 @@ const styles = StyleSheet.create({
     color: SEC_HS.navy,
     letterSpacing: 0,
   },
-  /* Segmented Tabs (3 Tab: Daily, Recap, Leaderboard) */
+  /* Segmented Tabs */
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: SEC_HS.warm,
@@ -923,83 +982,66 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingBottom: 4,
   },
-  daysGrid: {
-    gap: 4,
-    marginBottom: 6,
-  },
-  weekRow: {
+  calendarCellsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    marginBottom: 6,
   },
   dayCellWrapper: {
     width: '14.28%',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 2,
+  },
+  dayCellBase: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 2,
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: 'transparent',
   },
   dayCellSelected: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: SEC_HS.blue,
-    borderStyle: 'solid',
     backgroundColor: SEC_HS.blueLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 2,
-  },
-  dayTextSelected: {
-    fontFamily: FONTS.bold,
-    fontSize: 13,
-    fontWeight: '700',
-    color: SEC_HS.blueDark,
   },
   dayCellSubmission: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
     backgroundColor: SEC_HS.greenLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 2,
-  },
-  dayTextSubmission: {
-    fontFamily: FONTS.semiBold,
-    fontSize: 13,
-    fontWeight: '600',
-    color: SEC_HS.greenDark,
   },
   dayCellFuture: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 2,
-  },
-  dayTextFuture: {
-    fontFamily: FONTS.medium,
-    fontSize: 13,
-    fontWeight: '500',
-    color: 'rgba(28,25,23,0.28)',
+    backgroundColor: 'transparent',
   },
   dayCellPast: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: SEC_HS.border,
     borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: 'transparent',
-    paddingTop: 2,
   },
-  dayTextPast: {
+  dayTextBase: {
     fontFamily: FONTS.medium,
     fontSize: 13,
     fontWeight: '500',
     color: SEC_HS.navy,
+  },
+  dayTextSelected: {
+    fontFamily: FONTS.bold,
+    fontWeight: '700',
+    color: SEC_HS.blueDark,
+  },
+  dayTextSubmission: {
+    fontFamily: FONTS.semiBold,
+    fontWeight: '600',
+    color: SEC_HS.greenDark,
+  },
+  dayTextFuture: {
+    color: 'rgba(28,25,23,0.28)',
+  },
+  dayTextPast: {
+    color: SEC_HS.muted,
   },
   submissionDot: {
     width: 5,
@@ -1047,7 +1089,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     borderWidth: 1.5,
     borderColor: SEC_HS.blue,
-    borderStyle: 'solid',
     backgroundColor: SEC_HS.blueLight,
   },
   legendBoxSubmission: {
@@ -1086,7 +1127,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: SEC_HS.muted,
   },
-  /* Validation warning banner */
   validationWarningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1105,7 +1145,6 @@ const styles = StyleSheet.create({
     color: SEC_HS.red,
     flex: 1,
   },
-  /* Checklist Progress Summary */
   checklistProgressContainer: {
     marginBottom: 14,
     paddingHorizontal: 2,
@@ -1137,7 +1176,17 @@ const styles = StyleSheet.create({
     color: SEC_HS.muted,
     marginTop: 4,
   },
-  /* Habit Group Cards */
+  loadingWrap: {
+    paddingVertical: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontFamily: FONTS.regular,
+    fontSize: 13,
+    color: SEC_HS.muted,
+  },
   habitListWrap: {
     gap: 10,
   },
@@ -1219,7 +1268,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingHorizontal: 2,
   },
-  /* Tab 2: Recap Styles */
   recapSummaryCard: {
     backgroundColor: SEC_HS.white,
     borderRadius: 14,
@@ -1350,7 +1398,6 @@ const styles = StyleSheet.create({
   monthNavOutlineBtnTextDisabled: {
     color: SEC_HS.muted,
   },
-  /* Tab 3: Leaderboard Styles */
   classLeaderboardCard: {
     backgroundColor: SEC_HS.white,
     borderRadius: 14,

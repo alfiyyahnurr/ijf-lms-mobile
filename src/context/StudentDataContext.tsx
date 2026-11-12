@@ -357,15 +357,6 @@ export const StudentDataProvider: React.FC<{ children: React.ReactNode }> = ({ c
     return null;
   }, [studentProfile.studentId]);
 
-  // Load initial active month habits, literacy, and dashboard on startup / user switch
-  useEffect(() => {
-    const ym = todayKey.slice(0, 7);
-    fetchDashboardData();
-    fetchHabitsMonth(ym);
-    fetchClassLeaderboard();
-    fetchLiteracyLogs();
-  }, [todayKey, studentProfile.studentId, fetchDashboardData, fetchHabitsMonth, fetchClassLeaderboard, fetchLiteracyLogs]);
-
   // House Leaderboard State (7 houses, dynamic points and breakdown)
   const [houseLeaderboard, setHouseLeaderboard] = useState<LeaderboardHouse[]>([...LEADERBOARD_HOUSES]);
 

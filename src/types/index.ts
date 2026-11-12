@@ -76,6 +76,36 @@ export interface HabitGroup {
   items: HabitItem[];
 }
 
+export interface HabitItemRow {
+  id: number;
+  category_id: string;
+  item_label: string;
+  is_checked: boolean;
+}
+
+export interface HabitDayRecord {
+  id: number | null;
+  record_date: string;
+  categories_done: number;
+  items: HabitItemRow[];
+  points: number;
+}
+
+export interface HabitCategoryItem {
+  id: string;
+  label: string;
+  items: string[];
+}
+
+export interface HabitsMonthResult {
+  yearMonth: string;
+  today: string;
+  track: 'smp' | 'sma';
+  categories: HabitCategoryItem[];
+  days: HabitDayRecord[];
+  pointsPerFullDay: number;
+}
+
 export interface ClassHabitRankItem {
   rank: number;
   name: string;

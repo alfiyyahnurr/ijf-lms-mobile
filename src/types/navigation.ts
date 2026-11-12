@@ -12,7 +12,7 @@ export type BottomTabParamList = {
   WeeklyTab: undefined;
   CoursesTab: undefined;
   HabitsTab: undefined;
-  BoardTab: undefined;
+  BoardTab: { initialTab?: 'house' | 'jenjang' | 'class'; resetKey?: number } | undefined;
   AssignmentsTab: { assignmentId?: number; isDetail?: boolean } | undefined;
   QuizzesTab: undefined;
   ExamsTab: undefined;
