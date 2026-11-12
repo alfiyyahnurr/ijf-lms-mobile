@@ -131,14 +131,14 @@ export const HabitsScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>(today);
 
-  // Debouncing refs for server sync (500ms matching Web LMS)
+  // Debouncing & queue refs for server sync (reliable queue so fast clicks are never lost)
   const debounceRef = useRef<any>(null);
-  const pendingRef = useRef<{
+  const pendingQueueRef = useRef<Map<string, {
     categoryId: string;
     itemLabel: string;
     checked: boolean;
     recordDate: string;
-  } | null>(null);
+  }>>(new Map());
 
   // Leaderboard tab state
   const [lbRows, setLbRows] = useState<any[] | null>(null);
@@ -314,7 +314,7 @@ export const HabitsScreen: React.FC = () => {
     });
   }
 
-  // Handle item toggle with optimistic update and 500ms debounce matching Web LMS
+  // Handle item toggle with optimistic update and reliable queue dispatch
   function handleToggle(categoryId: string, itemLabel: string) {
     if (!canEdit) {
       showToast('Cannot edit future dates', 'error');
@@ -324,60 +324,69 @@ export const HabitsScreen: React.FC = () => {
     const next = !currently;
     const date = selectedDate;
 
-    setDays(applyLocalToggle(date, categoryId, itemLabel, next));
-    pendingRef.current = { categoryId, itemLabel, checked: next, recordDate: date };
+    // 1. Instant local optimistic update
+    setDays((prev) => applyLocalToggle(date, categoryId, itemLabel, next));
 
+    // 2. Queue the toggle without overwriting previous toggles
+    const queueKey = `${date}:${categoryId}:${itemLabel}`;
+    pendingQueueRef.current.set(queueKey, { categoryId, itemLabel, checked: next, recordDate: date });
+
+    // 3. Debounce dispatch: send all queued items sequentially
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
-      const pending = pendingRef.current;
-      if (!pending) return;
-      try {
-        const data = await api.habits.toggleHabit(
-          pending.recordDate,
-          pending.categoryId,
-          pending.itemLabel,
-          pending.checked
-        );
+      const itemsToSync = Array.from(pendingQueueRef.current.values());
+      pendingQueueRef.current.clear();
+      if (itemsToSync.length === 0) return;
 
-        setDays((prev) =>
-          prev.map((d) => {
-            if (d.record_date !== pending.recordDate) return d;
-            const items = [...d.items];
-            const idx = items.findIndex(
-              (i) => i.category_id === data.categoryId && i.item_label === data.itemLabel
-            );
-            if (idx >= 0) {
-              items[idx] = { ...items[idx], is_checked: data.isChecked };
-            } else {
-              items.push({
-                id: Date.now(),
-                category_id: data.categoryId,
-                item_label: data.itemLabel,
-                is_checked: data.isChecked,
-              });
-            }
-            return {
-              ...d,
-              id: data.recordId,
-              items,
-              categories_done: data.categoriesDone,
-              points: data.points,
-            };
-          })
-        );
+      for (const pending of itemsToSync) {
+        try {
+          const data = await api.habits.toggleHabit(
+            pending.recordDate,
+            pending.categoryId,
+            pending.itemLabel,
+            pending.checked
+          );
 
-        if (
-          data.categoriesDone >= HABIT_FULL_DAY_THRESHOLD &&
-          data.points > 0 &&
-          pending.checked
-        ) {
-          showToast(`+${data.points} pts · Habit full day`);
+          setDays((prev) =>
+            prev.map((d) => {
+              if (d.record_date !== pending.recordDate) return d;
+              const items = [...d.items];
+              const idx = items.findIndex(
+                (i) => i.category_id === data.categoryId && i.item_label === data.itemLabel
+              );
+              if (idx >= 0) {
+                items[idx] = { ...items[idx], is_checked: data.isChecked };
+              } else {
+                items.push({
+                  id: Date.now(),
+                  category_id: data.categoryId,
+                  item_label: data.itemLabel,
+                  is_checked: data.isChecked,
+                });
+              }
+              return {
+                ...d,
+                id: data.recordId,
+                items,
+                categories_done: data.categoriesDone,
+                points: data.points,
+              };
+            })
+          );
+
+          if (
+            data.categoriesDone >= HABIT_FULL_DAY_THRESHOLD &&
+            data.points > 0 &&
+            pending.checked
+          ) {
+            showToast(`+${data.points} pts · Habit full day`);
+          }
+        } catch (err: any) {
+          showToast(err?.message || 'Failed to save', 'error');
+          void loadMonth(yearMonth, selectedDate);
         }
-      } catch (err: any) {
-        showToast(err?.message || 'Failed to save', 'error');
-        void loadMonth(yearMonth, selectedDate);
       }
-    }, 500);
+    }, 400);
   }
 
   useEffect(() => {
@@ -691,9 +700,9 @@ export const HabitsScreen: React.FC = () => {
               </View>
             )}
 
-            {/* Footer Disclaimer */}
+            {/* Footer Disclaimer matching Web LMS */}
             <Text style={styles.footerDisclaimer}>
-              Self-reported daily checklist is an honor system. Points are verified periodically by your class teacher.
+              Based on G7KAIH (Gerakan 7 Kebiasaan Anak Indonesia Hebat). Full-day points when ≥5 habit groups are checked.
             </Text>
           </View>
         )}
@@ -703,10 +712,10 @@ export const HabitsScreen: React.FC = () => {
         {/* ========================================================= */}
         {tab === 'recap' && (
           <View style={styles.tabContentWrap}>
-            {/* Card 1: Month Summary (3 Tiles) */}
+            {/* Card 1: Month Summary (3 Tiles) matching Web LMS */}
             <View style={styles.recapSummaryCard}>
               <Text style={styles.recapSummaryTitle}>
-                Month summary · {monthTitle(yearMonth)}
+                {monthTitle(yearMonth)} summary
               </Text>
               <View style={styles.recapTilesRow}>
                 <View style={styles.recapTile}>
@@ -714,17 +723,17 @@ export const HabitsScreen: React.FC = () => {
                   <Text style={styles.recapTileLabel}>Full days</Text>
                 </View>
                 <View style={styles.recapTile}>
-                  <Text style={styles.recapTileNumber}>{monthPoints}</Text>
-                  <Text style={styles.recapTileLabel}>Month pts</Text>
-                </View>
-                <View style={styles.recapTile}>
                   <Text style={styles.recapTileNumber}>{daysWithAny}</Text>
                   <Text style={styles.recapTileLabel}>Days logged</Text>
+                </View>
+                <View style={styles.recapTile}>
+                  <Text style={styles.recapTileNumber}>{monthPoints}</Text>
+                  <Text style={styles.recapTileLabel}>Points</Text>
                 </View>
               </View>
 
               <Text style={styles.recapRuleText}>
-                Full day = ≥5 categories checked (2 pts each).
+                Full day = ≥5 categories checked ({pointsPerFullDay} pts each).
               </Text>
             </View>
 
@@ -767,7 +776,7 @@ export const HabitsScreen: React.FC = () => {
                 activeOpacity={0.7}
               >
                 <Ionicons name="chevron-back" size={15} color={SEC_HS.navy} />
-                <Text style={styles.monthNavOutlineBtnText}>Previous month</Text>
+                <Text style={styles.monthNavOutlineBtnText}>Prev month</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -798,36 +807,38 @@ export const HabitsScreen: React.FC = () => {
         )}
 
         {/* ========================================================= */}
-        {/* TAB 3: LEADERBOARD VIEW                                   */}
+        {/* TAB 3: LEADERBOARD VIEW (100% Web LMS Match & Top 15)      */}
         {/* ========================================================= */}
         {tab === 'leaderboard' && (
           <View style={styles.tabContentWrap}>
             <View style={styles.classLeaderboardCard}>
               <View style={styles.classLeaderboardHeader}>
                 <View>
-                  <Text style={styles.classLeaderboardTitle}>Class Habits Leaderboard</Text>
-                  <Text style={styles.classLeaderboardSubtitle}>
-                    {lbClassName || 'All students in your class'}
-                  </Text>
+                  <Text style={styles.classLeaderboardTitle}>Class habits points</Text>
+                  {lbClassName ? (
+                    <Text style={styles.classLeaderboardSubtitle}>
+                      {lbClassName}
+                    </Text>
+                  ) : null}
                 </View>
                 <TouchableOpacity
                   onPress={() => navigation.navigate('BoardTab' as never, { initialTab: 'class' } as never)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.fullLeaderboardLinkText}>Full Leaderboard →</Text>
+                  <Text style={styles.fullLeaderboardLinkText}>Full leaderboard →</Text>
                 </TouchableOpacity>
               </View>
 
               {lbLoading ? (
                 <View style={styles.loadingWrap}>
                   <ActivityIndicator size="small" color={SEC_HS.navy} />
-                  <Text style={styles.loadingText}>Loading class ranking...</Text>
+                  <Text style={styles.loadingText}>Loading…</Text>
                 </View>
               ) : sortedLb.length === 0 ? (
-                <Text style={styles.emptyStateText}>No habit points recorded yet this term.</Text>
+                <Text style={styles.emptyStateText}>No class ranking yet.</Text>
               ) : (
                 <View style={styles.rankList}>
-                  {sortedLb.map((student, idx) => {
+                  {sortedLb.slice(0, 15).map((student, idx) => {
                     const isCurrent = lbMyId ? student.student_id === lbMyId : false;
                     return (
                       <View
@@ -835,7 +846,7 @@ export const HabitsScreen: React.FC = () => {
                         style={[styles.rankRow, isCurrent && styles.rankRowCurrentUser]}
                       >
                         <Text style={[styles.rankNumberText, isCurrent && styles.rankNumberTextCurrentUser]}>
-                          #{idx + 1}
+                          {idx + 1}
                         </Text>
                         <Text
                           style={[
@@ -845,11 +856,11 @@ export const HabitsScreen: React.FC = () => {
                           numberOfLines={1}
                         >
                           {student.full_name}
-                          {isCurrent ? ' (You)' : ''}
+                          {isCurrent ? ' (you)' : ''}
                         </Text>
                         <View style={styles.pointsTextWrap}>
                           <Text style={styles.pointsLetterH}>H </Text>
-                          <Text style={styles.pointsNumberConsolas}>{student.habits_pts || 0} pts</Text>
+                          <Text style={styles.pointsNumberConsolas}>{student.habits_pts || 0}</Text>
                         </View>
                       </View>
                     );
